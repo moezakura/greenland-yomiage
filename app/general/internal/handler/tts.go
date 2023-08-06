@@ -2,11 +2,14 @@ package handler
 
 import (
 	"log"
+	"regexp"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/chun37/greenland-yomiage/general/internal/speaker"
 )
+
+var urlRegex = regexp.MustCompile(`https?://[\w/:%#\$&\?\(\)~\.=\+\-]+`)
 
 func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -40,14 +43,26 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 			return
 		}*/
 
-		v, err := h.joinvc(s, vs.GuildID, vs.ChannelID)
-		if err != nil {
-			log.Println("failed to join voice channel:", err)
+		if vs == nil {
 			return
 		}
 
+		// v, err := h.joinvc(s, vs.GuildID, vs.ChannelID)
+		// if err != nil {
+		// 	log.Println("failed to join voice channel:", err)
+		// 	return
+		// }
+		v, ok := s.VoiceConnections[vs.GuildID]
+		if ok {
+			return
+		}
+
+		msgTxt := m.Content
+
+		msgTxt = urlRegex.ReplaceAllString(msgTxt, "URL省略")
+
 		time.Sleep(time.Millisecond * 200)
 
-		messages <- speaker.SpeechMessage{v, m.Content}
+		messages <- speaker.SpeechMessage{VoiceConnection: v, Text: msgTxt}
 	}
 }
