@@ -43,9 +43,14 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 			return
 		}*/
 
-		v, err := h.joinvc(s, vs.GuildID, vs.ChannelID)
-		if err != nil {
-			log.Println("failed to join voice channel:", err)
+		// v, err := h.joinvc(s, vs.GuildID, vs.ChannelID)
+		// if err != nil {
+		// 	log.Println("failed to join voice channel:", err)
+		// 	return
+		// }
+
+		v, ok := s.VoiceConnections[vs.GuildID]
+		if !ok {
 			return
 		}
 
@@ -54,6 +59,6 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 
 		time.Sleep(time.Millisecond * 200)
 
-		messages <- speaker.SpeechMessage{v, msgTxt}
+		messages <- speaker.SpeechMessage{VoiceConnection: v, Text: msgTxt}
 	}
 }
