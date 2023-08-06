@@ -11,7 +11,7 @@ type command struct {
 	Handler func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
-func (h *Handler) Interaction(dg *bot.Yomiage, guildID string) (func(s *discordgo.Session, i *discordgo.InteractionCreate), []string) {
+func (h *Handler) Interaction(dg *bot.YomiageBot, guildID string) (func(s *discordgo.Session, i *discordgo.InteractionCreate), []string) {
 	commands := make(map[string]*command)
 
 	commands["join"] = &command{
@@ -73,7 +73,7 @@ func (h *Handler) Interaction(dg *bot.Yomiage, guildID string) (func(s *discordg
 	}, commandIDs
 }
 
-func registerCommands(dg *bot.Yomiage, guildID string, commands []*discordgo.ApplicationCommand) []*discordgo.ApplicationCommand {
+func registerCommands(dg *bot.YomiageBot, guildID string, commands []*discordgo.ApplicationCommand) []*discordgo.ApplicationCommand {
 	createdCommands := func() []*discordgo.ApplicationCommand {
 		cmds := make([]*discordgo.ApplicationCommand, 0)
 		for _, cmd := range commands {
