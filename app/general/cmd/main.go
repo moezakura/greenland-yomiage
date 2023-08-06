@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/chun37/greenland-yomiage/bot"
 	config "github.com/chun37/greenland-yomiage/general/internal/config"
 	"github.com/chun37/greenland-yomiage/general/internal/handler"
 	"github.com/chun37/greenland-yomiage/general/internal/initialize"
@@ -40,7 +39,6 @@ func init() {
 }
 
 func main() {
-
 	dg, err := discordgo.New("Bot " + Token)
 	if err != nil {
 		log.Fatalf("認証に失敗しました: %+v\n", err)
@@ -50,8 +48,6 @@ func main() {
 	if err := dg.Open(); err != nil {
 		log.Fatalf("コネクションを確立できませんでした: %+v\n", err)
 	}
-
-	yomiage := bot.New(dg)
 
 	cfg := config.Config{
 		TargetChannelID: YomiageChannelID,
@@ -65,11 +61,11 @@ func main() {
 	quiet := make(chan struct{})
 
 	hdr := handler.New(hp, messages, soundPacket)
-	yomiage.AddHandler(hdr.TTS(messages, quiet))
-	yomiage.AddHandler(hdr.Disconnect)
+	dg.AddHandler(hdr.TTS(messages, quiet))
+	dg.AddHandler(hdr.Disconnect)
 
-	interactionHandler, _ := hdr.Interaction(yomiage, GuildID)
-	yomiage.AddHandler(interactionHandler)
+	interactionHandler, _ := hdr.Interaction(dg, GuildID)
+	dg.AddHandler(interactionHandler)
 
 	spkr := speaker.NewSpeaker(usecases.TTSUsecase, messages, quiet)
 	listener := listener.NewListener(soundPacket, quiet)
