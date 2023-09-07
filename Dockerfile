@@ -15,9 +15,14 @@ RUN ln -fs "/app/voicevox_core/libvoicevox_core.so" "/app/voicevox_core/libonnxr
 
 RUN cp -r /app/voicevox_core/open_jtalk_dic_utf_8-1.11 .
 
+COPY ./app/go.mod .
+COPY ./app/go.sum .
+
+RUN go mod download
+
 COPY ./app .
 
-RUN go build -o bot general/cmd/main.go
+RUN go build -o bot cmd/main.go
 
 RUN cp -r /app/voicevox_core/model /usr/lib/
 
