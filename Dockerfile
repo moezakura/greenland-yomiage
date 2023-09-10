@@ -22,7 +22,7 @@ RUN go mod download
 
 COPY ./app .
 
-RUN go build -o bot cmd/main.go
+RUN go build -o bot general/cmd/main.go
 
 RUN cp -r /app/voicevox_core/model /usr/lib/
 
