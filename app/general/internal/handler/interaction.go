@@ -81,6 +81,7 @@ func registerCommands(dg *discordgo.Session, guildID string, commands []*discord
 			}
 			cmds = append(cmds, created)
 		}
+		dg.ApplicationCommandCreate(dg.State.User.ID, guildID, &discordgo.ApplicationCommand{Name: "cancel", Description: "読み上げをキャンセルします。"})
 		return cmds
 	}()
 	return createdCommands

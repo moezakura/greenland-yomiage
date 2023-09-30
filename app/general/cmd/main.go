@@ -51,6 +51,7 @@ func main() {
 
 	cfg := config.Config{
 		TargetChannelID: YomiageChannelID,
+		YomiageProgress: false,
 	}
 	externalDeps := initialize.NewExternalDependencies()
 	usecases := initialize.NewUsecases(externalDeps)
@@ -74,6 +75,7 @@ func main() {
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+	fmt.Println("Bot ID: ", dg.State.User.Username)
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc

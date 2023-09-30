@@ -37,6 +37,7 @@ func (s *Speaker) Run() {
 			}
 		case message := <-s.messages:
 			messages = append(messages, message)
+
 		}
 	}
 }
@@ -68,6 +69,8 @@ func (s *Speaker) do(message SpeechMessage) error {
 
 	for {
 		select {
+		case <-message.Context.Done():
+			return nil
 		case opus := <-opusChunks:
 			message.VoiceConnection.OpusSend <- opus
 		case <-done:
