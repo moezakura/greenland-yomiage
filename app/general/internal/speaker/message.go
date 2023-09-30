@@ -1,8 +1,13 @@
 package speaker
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"context"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 type SpeechMessage struct {
+	Context         context.Context
 	VoiceConnection *discordgo.VoiceConnection
 	Text            string
 }

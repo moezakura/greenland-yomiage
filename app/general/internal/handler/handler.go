@@ -19,3 +19,11 @@ func New(props *props.HandlerProps, messages chan speaker.SpeechMessage, soundPa
 		soundPacket: soundPacket,
 	}
 }
+
+func (h *Handler) SetTargetChannelID(targetChID string) {
+	h.props.Config.TargetChannelID = targetChID
+}
+
+func (h *Handler) SetYomiageProgress(yomiageProgress bool) {
+	h.props.Config.YomiageProgress = yomiageProgress
+}

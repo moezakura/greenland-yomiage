@@ -10,8 +10,9 @@ func New() *VoiceVoxCore {
 	core := voicevoxcorego.New()
 	options := core.MakeDefaultInitializeOptions()
 	options.UpdateOpenJtalkDictDir("./open_jtalk_dic_utf_8-1.11")
-	options.UpdateLoadAllModels(true)
+	options.UpdateLoadAllModels(false)
 	core.Initialize(options)
+	core.LoadModel(3)
 	return &VoiceVoxCore{*core}
 }
 

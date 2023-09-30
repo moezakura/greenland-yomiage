@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log"
 	"regexp"
 	"time"
@@ -59,6 +60,27 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 
 		time.Sleep(time.Millisecond * 200)
 
-		messages <- speaker.SpeechMessage{VoiceConnection: v, Text: msgTxt}
+		h.SetYomiageProgress(true)
+		ctx := context.Background()
+		ctx, cancel := context.WithCancel(ctx)
+		go func() {
+			removeFunc := s.AddHandlerOnce(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+				if i.ApplicationCommandData().Name == "cancel" {
+					cancel()
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "読み上げをキャンセルしたよ",
+						},
+					})
+				}
+			})
+			select {
+			case <-ctx.Done():
+				removeFunc()
+			}
+		}()
+		messages <- speaker.SpeechMessage{Context: ctx, VoiceConnection: v, Text: msgTxt}
+		h.SetYomiageProgress(false)
 	}
 }

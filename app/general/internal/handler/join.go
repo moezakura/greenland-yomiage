@@ -69,4 +69,7 @@ func (h *Handler) Join(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: fmt.Sprintf("[%s]に参加したよ", c.Name),
 		},
 	})
+
+	// 読み上げチャンネルを設定する
+	h.SetTargetChannelID(i.ChannelID)
 }
