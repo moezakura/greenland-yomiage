@@ -11,6 +11,7 @@ import (
 )
 
 var UrlRegex = regexp.MustCompile(`https?://[\w/:%#\$&\?\(\)~\.=\+\-]+`)
+var CodeBlockRegex = regexp.MustCompile("```.*?```")
 
 func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -57,6 +58,7 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 
 		msgTxt := m.Content
 		msgTxt = UrlRegex.ReplaceAllString(msgTxt, "URL省略")
+		msgTxt = CodeBlockRegex.ReplaceAllString(msgTxt, "こんなの読めないのだ")
 
 		time.Sleep(time.Millisecond * 200)
 
