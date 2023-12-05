@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"log"
 	"regexp"
 	"time"
 
@@ -15,6 +14,12 @@ var CodeBlockRegex = regexp.MustCompile("```.*?```")
 
 func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		// vcに参加していない場合は読み上げない
+		v, ok := s.VoiceConnections[m.GuildID]
+		if !ok {
+			return
+		}
+
 		// m.Author.ID == s.State.User.ID: 自分のメッセージ
 		// m.Author.Bot: Bot のメッセージ
 		// h.props.Config.TargetChannelID != m.ChannelID: 読み上げチャンネル以外
@@ -22,20 +27,11 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 			return
 		}
 
-		guild, err := s.State.Guild(m.GuildID)
-		if err != nil {
-			log.Println("failed to get guild:", err)
-			return
-		}
-
-		vs := func() *discordgo.VoiceState {
-			for _, state := range guild.VoiceStates {
-				if state.UserID == m.Author.ID {
-					return state
-				}
-			}
-			return nil
-		}()
+		// guild, err := s.State.Guild(m.GuildID)
+		// if err != nil {
+		// 	log.Println("failed to get guild:", err)
+		// 	return
+		// }
 
 		// vs == nil: VC に参加してない
 		// !vs.SelfMute: ミュートしていない
@@ -51,12 +47,11 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 		// 	return
 		// }
 
-		v, ok := s.VoiceConnections[vs.GuildID]
-		if !ok {
+		msgTxt := m.Content
+
+		if msgTxt == "" {
 			return
 		}
-
-		msgTxt := m.Content
 		msgTxt = UrlRegex.ReplaceAllString(msgTxt, "URL省略")
 		msgTxt = CodeBlockRegex.ReplaceAllString(msgTxt, "こんなの読めないのだ")
 
@@ -77,10 +72,8 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 					})
 				}
 			})
-			select {
-			case <-ctx.Done():
-				removeFunc()
-			}
+			<-ctx.Done()
+			removeFunc()
 		}()
 		messages <- speaker.SpeechMessage{Context: ctx, VoiceConnection: v, Text: msgTxt}
 		h.SetYomiageProgress(false)
