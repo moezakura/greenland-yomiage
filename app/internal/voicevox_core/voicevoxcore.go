@@ -12,12 +12,12 @@ func New() *VoiceVoxCore {
 	options.UpdateOpenJtalkDictDir("./open_jtalk_dic_utf_8-1.11")
 	options.UpdateLoadAllModels(false)
 	core.Initialize(options)
-	core.LoadModel(3)
+	core.LoadModel(8)
 	return &VoiceVoxCore{*core}
 }
 
 func (r *VoiceVoxCore) Generate(text string) ([]byte, error) {
-	query, err := r.AudioQuery(text, 3, r.MakeDefaultAudioQueryOotions())
+	query, err := r.AudioQuery(text, 8, r.MakeDefaultAudioQueryOotions())
 	if err != nil {
 		return nil, err
 	}
