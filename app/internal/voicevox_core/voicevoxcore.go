@@ -17,12 +17,12 @@ func New() *VoiceVoxCore {
 }
 
 func (r *VoiceVoxCore) Generate(text string) ([]byte, error) {
-	query, err := r.AudioQuery(text, 8, r.MakeDefaultAudioQueryOotions())
+	query, err := r.AudioQuery(text, 3, r.MakeDefaultAudioQueryOotions())
 	if err != nil {
 		return nil, err
 	}
 	query.SpeedScale = 1.2
-	return r.Synthesis(query, 8, r.MakeDefaultSynthesisOotions())
+	return r.Synthesis(query, 3, r.MakeDefaultSynthesisOotions())
 }
 
 func (r *VoiceVoxCore) Add(word, pronunciation string, accent int) error {
