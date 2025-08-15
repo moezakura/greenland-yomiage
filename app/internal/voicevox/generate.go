@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 
 	"golang.org/x/xerrors"
 )
@@ -16,7 +17,7 @@ func (v *VoiceVox) Generate(text string) ([]byte, error) {
 
 	audioQuery, err := v.getAudioQuery(ctx, text)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to")
+		return nil, xerrors.Errorf("failed to get audioQuery: %w", err)
 	}
 
 	reader, err := v.getAudioBinary(ctx, audioQuery)
@@ -28,7 +29,11 @@ func (v *VoiceVox) Generate(text string) ([]byte, error) {
 }
 
 func (v *VoiceVox) getAudioBinary(ctx context.Context, audioQuery []byte) ([]byte, error) {
-	synthesisURL, err := url.Parse("http://127.0.0.1:50021/synthesis")
+	baseURL := os.Getenv("VOICEVOX_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:50021"
+	}
+	synthesisURL, err := url.Parse(baseURL + "/synthesis")
 	if err != nil {
 		return nil, xerrors.Errorf("failed to parse synthesis URL: %w", err)
 	}
@@ -69,7 +74,11 @@ func (v *VoiceVox) getAudioBinary(ctx context.Context, audioQuery []byte) ([]byt
 }
 
 func (v *VoiceVox) getAudioQuery(ctx context.Context, text string) ([]byte, error) {
-	audioQueryURL, err := url.Parse("http://127.0.0.1:50021/audio_query")
+	baseURL := os.Getenv("VOICEVOX_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:50021"
+	}
+	audioQueryURL, err := url.Parse(baseURL + "/audio_query")
 	if err != nil {
 		return nil, xerrors.Errorf("failed to parse audioQuery URL: %w", err)
 	}

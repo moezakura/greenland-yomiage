@@ -5,13 +5,18 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 
 	"golang.org/x/xerrors"
 )
 
 func (v *VoiceVox) Add(word, pronunciation string, accent int) error {
-	userDictURL, err := url.Parse("http://127.0.0.1:50021/user_dict_word")
+	baseURL := os.Getenv("VOICEVOX_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:50021"
+	}
+	userDictURL, err := url.Parse(baseURL + "/user_dict_word")
 	if err != nil {
 		return xerrors.Errorf("failed to parse user dictionary URL: %w", err)
 	}
