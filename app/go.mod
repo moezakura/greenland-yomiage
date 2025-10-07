@@ -15,3 +15,5 @@ require (
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 )
+
+replace github.com/bwmarrin/discordgo => github.com/ozraru/discordgo v0.26.2-0.20250917201847-e6ee88434661

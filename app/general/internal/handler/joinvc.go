@@ -1,13 +1,15 @@
 package handler
 
 import (
+	"context"
+
 	"github.com/bwmarrin/discordgo"
 )
 
 func (h *Handler) joinvc(s *discordgo.Session, gid string, cid string) (*discordgo.VoiceConnection, error) {
 	joined := hasJoined(s, gid)
 
-	v, err := s.ChannelVoiceJoin(gid, cid, false, false)
+	v, err := s.ChannelVoiceJoin(context.Background(), gid, cid, false, false)
 	if err != nil {
 		return v, err
 	}

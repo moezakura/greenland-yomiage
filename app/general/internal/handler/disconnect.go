@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
@@ -18,10 +19,17 @@ func (h *Handler) Disconnect(s *discordgo.Session, u *discordgo.VoiceStateUpdate
 		return
 	}
 
+	// Get bot's voice state to find the channel ID
+	botVoiceState, err := s.State.VoiceState(vc.GuildID, s.State.User.ID)
+	if err != nil {
+		log.Println("failed to get bot voice state:", err)
+		return
+	}
+
 	members := func() []*discordgo.Member {
 		ms := make([]*discordgo.Member, 0)
 		for _, vs := range g.VoiceStates {
-			if vs.ChannelID != vc.ChannelID {
+			if vs.ChannelID != botVoiceState.ChannelID {
 				continue
 			}
 			m, err := s.State.Member(vs.GuildID, vs.UserID)
@@ -37,7 +45,7 @@ func (h *Handler) Disconnect(s *discordgo.Session, u *discordgo.VoiceStateUpdate
 		return
 	}
 
-	if err := vc.Disconnect(); err != nil {
+	if err := vc.Disconnect(context.Background()); err != nil {
 		log.Println("failed to disconnect voice connection:", err)
 	}
 }
