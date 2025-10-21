@@ -66,7 +66,7 @@ func (h *Handler) Interaction(dg *discordgo.Session, guildID string) (func(s *di
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "speaker_id",
 					Description: "Speaker ID (例: 1, 3, 8など)",
-					Required:    true,
+					Required:    false,
 				},
 			},
 		},
@@ -80,6 +80,12 @@ func (h *Handler) Interaction(dg *discordgo.Session, guildID string) (func(s *di
 	commandIDs := lo.Map(createdCommands, func(item *discordgo.ApplicationCommand, _ int) string { return item.ID })
 
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// メッセージコンポーネント（セレクトメニュー）のインタラクションを処理
+		if i.Type == discordgo.InteractionMessageComponent {
+			h.HandleMessageComponent(s, i)
+			return
+		}
+
 		c, ok := commands[i.ApplicationCommandData().Name]
 		if !ok {
 			return

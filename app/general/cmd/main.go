@@ -63,7 +63,7 @@ func main() {
 
 	externalDeps := initialize.NewExternalDependencies()
 	usecases := initialize.NewUsecases(externalDeps)
-	hp := initialize.NewHandlerProps(cfg, usecases, voiceSettings)
+	hp := initialize.NewHandlerProps(cfg, usecases, voiceSettings, externalDeps)
 
 	messages := make(chan speaker.SpeechMessage, 10)
 	soundPacket := make(chan *discordgo.Packet, 1)
