@@ -4,20 +4,23 @@ import (
 	"log"
 
 	"github.com/chun37/greenland-yomiage/internal/usecase/tts"
+	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 	"golang.org/x/xerrors"
 )
 
 type Speaker struct {
-	usecase  *tts.Usecase
-	messages chan SpeechMessage
-	quiet    <-chan struct{}
+	usecase       *tts.Usecase
+	messages      chan SpeechMessage
+	quiet         <-chan struct{}
+	voiceSettings *voicesettings.Settings
 }
 
-func NewSpeaker(usecase *tts.Usecase, messages chan SpeechMessage, quiet <-chan struct{}) *Speaker {
+func NewSpeaker(usecase *tts.Usecase, messages chan SpeechMessage, quiet <-chan struct{}, voiceSettings *voicesettings.Settings) *Speaker {
 	return &Speaker{
-		usecase:  usecase,
-		messages: messages,
-		quiet:    quiet,
+		usecase:       usecase,
+		messages:      messages,
+		quiet:         quiet,
+		voiceSettings: voiceSettings,
 	}
 }
 
@@ -51,8 +54,12 @@ func (s *Speaker) do(message SpeechMessage) error {
 	opusChunks := make(chan []byte, 3)
 	defer close(done)
 	defer close(opusChunks)
+
+	speakerID := s.voiceSettings.GetSpeakerID(message.UserID)
+
 	if err := s.usecase.Do(tts.UsecaseParam{
 		Text:       message.Text,
+		SpeakerID:  speakerID,
 		OpusChunks: opusChunks,
 		Done:       done,
 	}); err != nil {

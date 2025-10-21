@@ -10,4 +10,5 @@ type SpeechMessage struct {
 	Context         context.Context
 	VoiceConnection *discordgo.VoiceConnection
 	Text            string
+	UserID          string
 }

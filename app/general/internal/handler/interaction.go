@@ -57,6 +57,22 @@ func (h *Handler) Interaction(dg *discordgo.Session, guildID string) (func(s *di
 		Handler: h.AddWord,
 	}
 
+	commands["set-voice"] = &command{
+		AppCmd: &discordgo.ApplicationCommand{
+			Name:        "set-voice",
+			Description: "あなたの音声を設定します。",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "speaker_id",
+					Description: "Speaker ID (例: 1, 3, 8など)",
+					Required:    true,
+				},
+			},
+		},
+		Handler: h.SetVoice,
+	}
+
 	createdCommands := registerCommands(dg, guildID, lo.MapToSlice(commands, func(_ string, value *command) *discordgo.ApplicationCommand {
 		return value.AppCmd
 	}))
