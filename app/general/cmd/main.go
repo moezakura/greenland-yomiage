@@ -13,6 +13,7 @@ import (
 	"github.com/chun37/greenland-yomiage/general/internal/initialize"
 	"github.com/chun37/greenland-yomiage/general/internal/listener"
 	"github.com/chun37/greenland-yomiage/general/internal/speaker"
+	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 )
 
 // Variables used for command line parameters
@@ -53,9 +54,16 @@ func main() {
 		TargetChannelID: YomiageChannelID,
 		YomiageProgress: false,
 	}
+
+	// 音声設定を読み込む
+	voiceSettings, err := voicesettings.Load("data/voice_settings.json")
+	if err != nil {
+		log.Fatalf("音声設定の読み込みに失敗しました: %+v\n", err)
+	}
+
 	externalDeps := initialize.NewExternalDependencies()
 	usecases := initialize.NewUsecases(externalDeps)
-	hp := initialize.NewHandlerProps(cfg, usecases)
+	hp := initialize.NewHandlerProps(cfg, usecases, voiceSettings, externalDeps)
 
 	messages := make(chan speaker.SpeechMessage, 10)
 	soundPacket := make(chan *discordgo.Packet, 1)
@@ -68,7 +76,7 @@ func main() {
 	interactionHandler, _ := hdr.Interaction(dg, GuildID)
 	dg.AddHandler(interactionHandler)
 
-	spkr := speaker.NewSpeaker(usecases.TTSUsecase, messages, quiet)
+	spkr := speaker.NewSpeaker(usecases.TTSUsecase, messages, quiet, voiceSettings)
 	listener := listener.NewListener(soundPacket, quiet)
 	go spkr.Run()
 	go listener.Run()

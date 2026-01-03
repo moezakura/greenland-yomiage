@@ -8,19 +8,20 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 
 	"golang.org/x/xerrors"
 )
 
-func (v *VoiceVox) Generate(text string) ([]byte, error) {
+func (v *VoiceVox) Generate(text string, speakerID int) ([]byte, error) {
 	ctx := context.Background()
 
-	audioQuery, err := v.getAudioQuery(ctx, text)
+	audioQuery, err := v.getAudioQuery(ctx, text, speakerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get audioQuery: %w", err)
 	}
 
-	reader, err := v.getAudioBinary(ctx, audioQuery)
+	reader, err := v.getAudioBinary(ctx, audioQuery, speakerID)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to get audioBinary: %w", err)
 	}
@@ -28,7 +29,7 @@ func (v *VoiceVox) Generate(text string) ([]byte, error) {
 	return reader, nil
 }
 
-func (v *VoiceVox) getAudioBinary(ctx context.Context, audioQuery []byte) ([]byte, error) {
+func (v *VoiceVox) getAudioBinary(ctx context.Context, audioQuery []byte, speakerID int) ([]byte, error) {
 	baseURL := os.Getenv("VOICEVOX_BASE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:50021"
@@ -39,7 +40,7 @@ func (v *VoiceVox) getAudioBinary(ctx context.Context, audioQuery []byte) ([]byt
 	}
 
 	query := url.Values{}
-	query.Add("speaker", "8")
+	query.Add("speaker", strconv.Itoa(speakerID))
 	synthesisURL.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, synthesisURL.String(), bytes.NewReader(audioQuery))
@@ -73,7 +74,7 @@ func (v *VoiceVox) getAudioBinary(ctx context.Context, audioQuery []byte) ([]byt
 	return body, nil
 }
 
-func (v *VoiceVox) getAudioQuery(ctx context.Context, text string) ([]byte, error) {
+func (v *VoiceVox) getAudioQuery(ctx context.Context, text string, speakerID int) ([]byte, error) {
 	baseURL := os.Getenv("VOICEVOX_BASE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:50021"
@@ -84,7 +85,7 @@ func (v *VoiceVox) getAudioQuery(ctx context.Context, text string) ([]byte, erro
 	}
 
 	query := url.Values{}
-	query.Add("speaker", "8")
+	query.Add("speaker", strconv.Itoa(speakerID))
 	query.Add("text", text)
 	audioQueryURL.RawQuery = query.Encode()
 

@@ -75,7 +75,7 @@ func (h *Handler) TTS(messages chan speaker.SpeechMessage, x chan struct{}) func
 			<-ctx.Done()
 			removeFunc()
 		}()
-		messages <- speaker.SpeechMessage{Context: ctx, VoiceConnection: v, Text: msgTxt}
+		messages <- speaker.SpeechMessage{Context: ctx, VoiceConnection: v, Text: msgTxt, UserID: m.Author.ID}
 		h.SetYomiageProgress(false)
 	}
 }

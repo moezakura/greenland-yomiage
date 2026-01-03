@@ -23,12 +23,13 @@ func NewUsecase(deps Dependencies) *Usecase {
 
 type UsecaseParam struct {
 	Text       string
+	SpeakerID  int
 	OpusChunks chan []byte
 	Done       chan struct{}
 }
 
 func (u *Usecase) Do(param UsecaseParam) error {
-	wav, err := u.deps.WavGenerator.Generate(param.Text)
+	wav, err := u.deps.WavGenerator.Generate(param.Text, param.SpeakerID)
 	if err != nil {
 		return xerrors.Errorf("failed to generate wav: %w", err)
 	}

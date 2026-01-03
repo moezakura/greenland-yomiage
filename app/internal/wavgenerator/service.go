@@ -1,5 +1,5 @@
 package wavgenerator
 
 type Service interface {
-	Generate(s string) ([]byte, error)
+	Generate(text string, speakerID int) ([]byte, error)
 }
