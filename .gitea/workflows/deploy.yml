@@ -67,3 +67,47 @@ jobs:
             fi
         env:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Cleanup old registry versions (keep latest 20)
+        if: always()
+        run: |
+          API="http://10.77.0.20/api/v1/packages/greenland/container/yomiage"
+          TOKEN="${{ secrets.REGISTRY_TOKEN }}"
+
+          # SHA タグのバージョンを作成日降順で取得し、20件より古いものを削除
+          curl -s -H "Authorization: token $TOKEN" \
+            "http://10.77.0.20/api/v1/packages/greenland?type=container&limit=50&sort=created_desc" \
+          | python3 -c "
+          import json, sys, urllib.request
+
+          data = json.load(sys.stdin)
+          # latest と sha256: を除いたコミットSHAタグのみ抽出
+          sha_versions = [p for p in data if p['name'] == 'yomiage'
+                          and not p['version'].startswith('sha256:')
+                          and p['version'] != 'latest']
+          # 新しい順にソート
+          sha_versions.sort(key=lambda x: x['created_at'], reverse=True)
+
+          # 20件より古いものを削除
+          to_delete = sha_versions[20:]
+          for v in to_delete:
+              ver = v['version']
+              url = f'$API/{ver}'
+              req = urllib.request.Request(url, method='DELETE')
+              req.add_header('Authorization', 'token $TOKEN')
+              try:
+                  urllib.request.urlopen(req)
+                  print(f'Deleted: {ver}')
+              except Exception as e:
+                  print(f'Failed to delete {ver}: {e}')
+
+          if not to_delete:
+              print('No old versions to delete')
+          "
+
+      - name: Cleanup CI host
+        if: always()
+        run: |
+          docker rmi 10.77.0.20/greenland/yomiage:latest 2>/dev/null || true
+          docker rmi 10.77.0.20/greenland/yomiage:${{ github.sha }} 2>/dev/null || true
+          docker builder prune -f 2>/dev/null || true
