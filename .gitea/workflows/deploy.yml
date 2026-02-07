@@ -1,0 +1,69 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Gitea Container Registry
+        run: >-
+          echo "${{ secrets.GITEA_TOKEN }}"
+          | docker login 10.77.0.20 -u ${{ gitea.actor }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t 10.77.0.20/greenland/yomiage:latest \
+            -t 10.77.0.20/greenland/yomiage:${{ gitea.sha }} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push 10.77.0.20/greenland/yomiage:latest
+          docker push 10.77.0.20/greenland/yomiage:${{ gitea.sha }}
+
+      - name: Deploy to YUNAGI
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 10.77.0.17
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: GITEA_TOKEN
+          script: |
+            IMAGE="10.77.0.20/greenland/yomiage:latest"
+
+            # Giteaレジストリ認証
+            echo "$GITEA_TOKEN" | sudo podman login --tls-verify=false 10.77.0.20 -u greenland --password-stdin
+
+            # 旧コンテナ停止・削除（初回デプロイ時は存在しないのでエラー無視）
+            sudo podman stop greenland-yomiage 2>/dev/null || true
+            sudo podman rm greenland-yomiage 2>/dev/null || true
+
+            # 最新イメージ取得
+            sudo podman pull --tls-verify=false $IMAGE
+
+            # コンテナ起動
+            sudo podman run -d \
+              --name greenland-yomiage \
+              --restart always \
+              --env-file /opt/greenland-yomiage/.env \
+              -v /opt/greenland-yomiage/data:/app/data:Z \
+              $IMAGE
+
+            # ヘルスチェック（10秒後にコンテナが生存しているか）
+            sleep 10
+            if sudo podman ps --filter name=greenland-yomiage --format '{{.Status}}' | grep -q 'Up'; then
+              echo "Deploy successful: container is running"
+            else
+              echo "Deploy FAILED: container is not running"
+              sudo podman logs greenland-yomiage
+              exit 1
+            fi
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
