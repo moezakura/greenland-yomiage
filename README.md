@@ -1,5 +1,7 @@
 # greenland-yomiage
 
+> **Note**: GitHub上のリポジトリはミラーです。開発のメインリポジトリは http://10.77.0.20/greenland/yomiage.git にあります。
+
 Discord用テキスト読み上げBot - VOICEVOXを使用してテキストメッセージを音声に変換し、ボイスチャンネルで読み上げます。
 
 ## 概要
@@ -52,7 +54,7 @@ DISCORD_YOMIAGE_CH_ID=your_text_channel_id_here
 
 1. リポジトリをクローン
 ```bash
-git clone https://github.com/chun37/greenland-yomiage.git
+git clone http://10.77.0.20/greenland/yomiage.git greenland-yomiage
 cd greenland-yomiage
 ```
 
