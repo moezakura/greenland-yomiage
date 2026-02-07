@@ -13,20 +13,20 @@ jobs:
 
       - name: Login to Gitea Container Registry
         run: >-
-          echo "${{ secrets.GITEA_TOKEN }}"
-          | docker login 10.77.0.20 -u ${{ gitea.actor }} --password-stdin
+          echo "${{ secrets.REGISTRY_TOKEN }}"
+          | docker login 10.77.0.20 -u ${{ github.actor }} --password-stdin
 
       - name: Build Docker image
         run: |
           docker build \
             -t 10.77.0.20/greenland/yomiage:latest \
-            -t 10.77.0.20/greenland/yomiage:${{ gitea.sha }} \
+            -t 10.77.0.20/greenland/yomiage:${{ github.sha }} \
             .
 
       - name: Push Docker image
         run: |
           docker push 10.77.0.20/greenland/yomiage:latest
-          docker push 10.77.0.20/greenland/yomiage:${{ gitea.sha }}
+          docker push 10.77.0.20/greenland/yomiage:${{ github.sha }}
 
       - name: Deploy to YUNAGI
         uses: appleboy/ssh-action@v1
@@ -34,12 +34,12 @@ jobs:
           host: 10.77.0.17
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GITEA_TOKEN
+          envs: REGISTRY_TOKEN
           script: |
             IMAGE="10.77.0.20/greenland/yomiage:latest"
 
             # Giteaレジストリ認証
-            echo "$GITEA_TOKEN" | sudo podman login --tls-verify=false 10.77.0.20 -u greenland --password-stdin
+            echo "$REGISTRY_TOKEN" | sudo podman login --tls-verify=false 10.77.0.20 -u ${{ github.actor }} --password-stdin
 
             # 旧コンテナ停止・削除（初回デプロイ時は存在しないのでエラー無視）
             sudo podman stop greenland-yomiage 2>/dev/null || true
@@ -66,4 +66,4 @@ jobs:
               exit 1
             fi
         env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
