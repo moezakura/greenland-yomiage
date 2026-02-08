@@ -3,7 +3,6 @@ package handler
 import (
 	"fmt"
 	"log"
-	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/chun37/greenland-yomiage/internal/aivoice"
