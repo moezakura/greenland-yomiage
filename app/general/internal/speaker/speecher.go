@@ -55,11 +55,12 @@ func (s *Speaker) do(message SpeechMessage) error {
 	defer close(done)
 	defer close(opusChunks)
 
-	speakerID := s.voiceSettings.GetSpeakerID(message.UserID)
+	userSetting := s.voiceSettings.GetUserSetting(message.UserID)
 
 	if err := s.usecase.Do(tts.UsecaseParam{
 		Text:       message.Text,
-		SpeakerID:  speakerID,
+		SpeakerID:  userSetting.SpeakerID,
+		EngineType: userSetting.Engine,
 		OpusChunks: opusChunks,
 		Done:       done,
 	}); err != nil {

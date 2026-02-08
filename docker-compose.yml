@@ -13,7 +13,11 @@ services:
     build: .
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      - DISCORD_YOMIAGE_CH_ID=${DISCORD_YOMIAGE_CH_ID}
+      - TTS_ENGINE=${TTS_ENGINE:-voicevox}
       - VOICEVOX_BASE_URL=http://voicevox:50021
+      - AIVOICE2_ENGINE_BASE_URL=${AIVOICE2_ENGINE_BASE_URL:-http://localhost:8000}
     depends_on:
       - voicevox
     restart: unless-stopped

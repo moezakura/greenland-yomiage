@@ -7,12 +7,19 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 	"github.com/chun37/greenland-yomiage/internal/voicevox"
 )
 
 func (h *Handler) HandleMessageComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.MessageComponentData()
 	customID := data.CustomID
+
+	// select_engine (エンジン選択)
+	if customID == "select_engine" {
+		h.handleEngineSelection(s, i)
+		return
+	}
 
 	// select_voice または select_voice:ページ番号
 	if strings.HasPrefix(customID, "select_voice") {
@@ -25,6 +32,57 @@ func (h *Handler) HandleMessageComponent(s *discordgo.Session, i *discordgo.Inte
 		h.handleVoicePageChange(s, i)
 		return
 	}
+}
+
+func (h *Handler) handleEngineSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	data := i.MessageComponentData()
+
+	// セレクトメニューから選択された値を取得
+	if len(data.Values) == 0 {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content: "エンジンが選択されていません。",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	engineType := voicesettings.EngineType(data.Values[0])
+	userID := i.Member.User.ID
+
+	// 現在の設定を取得
+	currentSetting := h.props.VoiceSettings.GetUserSetting(userID)
+	currentSetting.Engine = engineType
+
+	// 音声設定を更新
+	if err := h.props.VoiceSettings.SetUserSetting(userID, currentSetting); err != nil {
+		log.Printf("エンジン設定の保存に失敗しました: %+v\n", err)
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    "エンジン設定の保存に失敗しました。",
+				Components: []discordgo.MessageComponent{},
+				Flags:      discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	engineName := "VOICEVOX"
+	if engineType == voicesettings.EngineAIVoice {
+		engineName = "AIVoice"
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Content:    fmt.Sprintf("TTSエンジンを %s に設定しました。", engineName),
+			Components: []discordgo.MessageComponent{},
+			Flags:      discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
 
 func (h *Handler) handleVoiceSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
