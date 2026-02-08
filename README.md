@@ -15,12 +15,11 @@ greenland-yomiageは、Discordサーバーのテキストチャンネルに投�
 - 📝 コードブロックの自動省略（「こんなの読めないのだ」と読み上げ）
 - 📚 辞書機能による単語登録
 - 🔄 複数のTTSエンジンに対応（VOICEVOX / AIVoice2）
-- 👤 ユーザーごとのエンジン・音声設定
+- 👤 ユーザーごとの音声設定（エンジンは音声選択時に自動設定）
 - ⚡ スラッシュコマンド対応
   - `/join` - ボイスチャンネルに参加
   - `/leave` - ボイスチャンネルから退出
-  - `/set-engine` - 使用するTTSエンジンを選択
-  - `/set-voice` - 使用する音声を選択
+  - `/set-voice` - 使用する音声を選択（VOICEVOX/AIVoice両方から選択可能）
   - `/add-word` - 辞書に単語を追加
   - `/cancel` - 現在の読み上げをキャンセル
 
@@ -145,44 +144,32 @@ docker run -d -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
 
 5. 環境変数を設定して実行
 
-**VOICEVOX Engineを使用する場合:**
 ```bash
 export DISCORD_TOKEN=your_token
 export DISCORD_GUILD_ID=your_guild_id
 export DISCORD_YOMIAGE_CH_ID=your_channel_id
-export TTS_ENGINE=voicevox
 export VOICEVOX_BASE_URL=http://localhost:50021
-./bot
-```
-
-**AIVoice2 Engineを使用する場合:**
-```bash
-export DISCORD_TOKEN=your_token
-export DISCORD_GUILD_ID=your_guild_id
-export DISCORD_YOMIAGE_CH_ID=your_channel_id
-export TTS_ENGINE=aivoice
-export AIVOICE2_ENGINE_BASE_URL=http://localhost:8000
+export AIVOICE2_ENGINE_BASE_URL=http://localhost:8000  # AIVoice使用時のみ
 ./bot
 ```
 
 ## TTSエンジンの使い分け
 
-### ユーザーごとの設定
+### 音声の選択
 
-1. **エンジンの選択**: `/set-engine` コマンドで、自分が使用するTTSエンジンを選択できます
-   - `VOICEVOX`: 無料で高品質な音声合成（デフォルト）
-   - `AIVoice`: AIVoice2 Engineを使用した音声合成
+`/set-voice` コマンドを使用すると、VOICEVOXとAIVoice2の両方のスピーカーが一覧で表示されます。
+選択した音声に応じて、使用するエンジンが自動的に設定されます。
 
-2. **音声の選択**: `/set-voice` コマンドで、選択したエンジン内の音声を選択できます
-   - 現在選択中のエンジンに応じて、利用可能な音声が表示されます
+- `[VOICEVOX]` プレフィックス付きの音声を選択 → VOICEVOX Engineが使用されます
+- `[AIVoice]` プレフィックス付きの音声を選択 → AIVoice2 Engineが使用されます
 
 ### AIVoice2 Engineのセットアップ
 
-AIVoice2を使用する場合は、別途AIVoice2 Engine APIサーバーをセットアップする必要があります。
+AIVoice2の音声を使用する場合は、別途AIVoice2 Engine APIサーバーをセットアップする必要があります。
 
 1. AIVoice2 Engine APIサーバーを起動（ポート8000）
 2. 環境変数 `AIVOICE2_ENGINE_BASE_URL` を設定
-3. `/set-engine` コマンドで `AIVoice` を選択
+3. `/set-voice` コマンドで `[AIVoice]` プレフィックス付きの音声を選択
 
 **APIエンドポイント:**
 ```
@@ -214,7 +201,7 @@ Content-Type: application/json
 ### AIVoiceで音声が生成されない
 - `AIVOICE2_ENGINE_BASE_URL` が正しく設定されているか確認してください
 - AIVoice2 Engine APIサーバーが起動しているか確認してください
-- `/set-engine` で `AIVoice` を選択しているか確認してください
+- `/set-voice` で `[AIVoice]` プレフィックス付きの音声を選択しているか確認してください
 
 ## ライセンス
 

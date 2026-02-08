@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/chun37/greenland-yomiage/internal/aivoice"
 	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 	"github.com/chun37/greenland-yomiage/internal/voicevox"
 )
@@ -14,12 +15,6 @@ import (
 func (h *Handler) HandleMessageComponent(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.MessageComponentData()
 	customID := data.CustomID
-
-	// select_engine (エンジン選択)
-	if customID == "select_engine" {
-		h.handleEngineSelection(s, i)
-		return
-	}
 
 	// select_voice または select_voice:ページ番号
 	if strings.HasPrefix(customID, "select_voice") {
@@ -34,61 +29,10 @@ func (h *Handler) HandleMessageComponent(s *discordgo.Session, i *discordgo.Inte
 	}
 }
 
-func (h *Handler) handleEngineSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	data := i.MessageComponentData()
-
-	// セレクトメニューから選択された値を取得
-	if len(data.Values) == 0 {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content: "エンジンが選択されていません。",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
-
-	engineType := voicesettings.EngineType(data.Values[0])
-	userID := i.Member.User.ID
-
-	// 現在の設定を取得
-	currentSetting := h.props.VoiceSettings.GetUserSetting(userID)
-	currentSetting.Engine = engineType
-
-	// 音声設定を更新
-	if err := h.props.VoiceSettings.SetUserSetting(userID, currentSetting); err != nil {
-		log.Printf("エンジン設定の保存に失敗しました: %+v\n", err)
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseUpdateMessage,
-			Data: &discordgo.InteractionResponseData{
-				Content:    "エンジン設定の保存に失敗しました。",
-				Components: []discordgo.MessageComponent{},
-				Flags:      discordgo.MessageFlagsEphemeral,
-			},
-		})
-		return
-	}
-
-	engineName := "VOICEVOX"
-	if engineType == voicesettings.EngineAIVoice {
-		engineName = "AIVoice"
-	}
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: &discordgo.InteractionResponseData{
-			Content:    fmt.Sprintf("TTSエンジンを %s に設定しました。", engineName),
-			Components: []discordgo.MessageComponent{},
-			Flags:      discordgo.MessageFlagsEphemeral,
-		},
-	})
-}
-
 func (h *Handler) handleVoiceSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.MessageComponentData()
 
-	// セレクトメニューから選択された値（speaker ID）を取得
+	// セレクトメニューから選択された値（engine:speakerID）を取得
 	if len(data.Values) == 0 {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
@@ -100,8 +44,23 @@ func (h *Handler) handleVoiceSelection(s *discordgo.Session, i *discordgo.Intera
 		return
 	}
 
-	speakerIDStr := data.Values[0]
-	speakerID, err := strconv.Atoi(speakerIDStr)
+	selectedValue := data.Values[0]
+	// "engine:speakerID" 形式をパース
+	parts := strings.Split(selectedValue, ":")
+	if len(parts) != 2 {
+		log.Printf("無効な選択値形式: %s", selectedValue)
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content: "無効な音声選択です。",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	engineType := voicesettings.EngineType(parts[0])
+	speakerID, err := strconv.Atoi(parts[1])
 	if err != nil {
 		log.Printf("speaker IDの変換に失敗しました: %+v\n", err)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -116,8 +75,12 @@ func (h *Handler) handleVoiceSelection(s *discordgo.Session, i *discordgo.Intera
 
 	userID := i.Member.User.ID
 
-	// 音声設定を更新
-	if err := h.props.VoiceSettings.SetSpeakerID(userID, speakerID); err != nil {
+	// エンジンとスピーカーIDの両方を保存
+	userSetting := voicesettings.UserSetting{
+		SpeakerID: speakerID,
+		Engine:    engineType,
+	}
+	if err := h.props.VoiceSettings.SetUserSetting(userID, userSetting); err != nil {
 		log.Printf("音声設定の保存に失敗しました: %+v\n", err)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
@@ -137,7 +100,7 @@ func (h *Handler) handleVoiceSelection(s *discordgo.Session, i *discordgo.Intera
 			for _, c := range row.Components {
 				if menu, ok := c.(*discordgo.SelectMenu); ok {
 					for _, option := range menu.Options {
-						if option.Value == speakerIDStr {
+						if option.Value == selectedValue {
 							selectedLabel = option.Label
 							break
 						}
@@ -147,10 +110,15 @@ func (h *Handler) handleVoiceSelection(s *discordgo.Session, i *discordgo.Intera
 		}
 	}
 
+	engineName := "VOICEVOX"
+	if engineType == voicesettings.EngineAIVoice {
+		engineName = "AIVoice"
+	}
+
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
-			Content:    fmt.Sprintf("音声を %s (Speaker ID: %d) に設定しました。", selectedLabel, speakerID),
+			Content:    fmt.Sprintf("音声を %s に設定しました。(エンジン: %s, Speaker ID: %d)", selectedLabel, engineName, speakerID),
 			Components: []discordgo.MessageComponent{},
 			Flags:      discordgo.MessageFlagsEphemeral,
 		},
@@ -175,37 +143,58 @@ func (h *Handler) handleVoicePageChange(s *discordgo.Session, i *discordgo.Inter
 	}
 
 	// スピーカー一覧を再取得
-	speakers, err := h.props.VoiceVox.GetSpeakers()
+	voxSpeakers, err := h.props.VoiceVox.GetSpeakers()
 	if err != nil {
-		log.Printf("スピーカー一覧の取得に失敗しました: %+v\n", err)
+		log.Printf("VOICEVOX スピーカー一覧の取得に失敗しました: %+v\n", err)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Content: "スピーカー一覧の取得に失敗しました。",
+				Content: "VOICEVOX スピーカー一覧の取得に失敗しました。",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 		return
 	}
 
-	h.updateVoiceSelectionPage(s, i, speakers, page)
+	aiSpeakers, err := h.props.AIVoice.GetSpeakers()
+	if err != nil {
+		log.Printf("AIVoice スピーカー一覧の取得に失敗しました: %+v\n", err)
+		aiSpeakers = []aivoice.Speaker{}
+	}
+
+	h.updateVoiceSelectionPage(s, i, voxSpeakers, aiSpeakers, page)
 }
 
-func (h *Handler) updateVoiceSelectionPage(s *discordgo.Session, i *discordgo.InteractionCreate, speakers []voicevox.Speaker, page int) {
+func (h *Handler) updateVoiceSelectionPage(s *discordgo.Session, i *discordgo.InteractionCreate, voxSpeakers []voicevox.Speaker, aiSpeakers []aivoice.Speaker, page int) {
 	// 全てのスタイルをフラット化
-	allStyles := make([]struct {
+	type StyleItem struct {
 		SpeakerName string
-		Style       voicevox.SpeakerStyle
-	}, 0)
+		StyleName   string
+		StyleID     int
+		Engine      voicesettings.EngineType
+	}
+	allStyles := make([]StyleItem, 0)
 
-	for _, speaker := range speakers {
+	// VOICEVOX スピーカーを追加
+	for _, speaker := range voxSpeakers {
 		for _, style := range speaker.Styles {
-			allStyles = append(allStyles, struct {
-				SpeakerName string
-				Style       voicevox.SpeakerStyle
-			}{
+			allStyles = append(allStyles, StyleItem{
 				SpeakerName: speaker.Name,
-				Style:       style,
+				StyleName:   style.Name,
+				StyleID:     style.ID,
+				Engine:      voicesettings.EngineVoicevox,
+			})
+		}
+	}
+
+	// AIVoice スピーカーを追加
+	for _, speaker := range aiSpeakers {
+		for _, style := range speaker.Styles {
+			allStyles = append(allStyles, StyleItem{
+				SpeakerName: speaker.Name,
+				StyleName:   style.Name,
+				StyleID:     style.ID,
+				Engine:      voicesettings.EngineAIVoice,
 			})
 		}
 	}
@@ -230,10 +219,14 @@ func (h *Handler) updateVoiceSelectionPage(s *discordgo.Session, i *discordgo.In
 	// セレクトメニューのオプションを作成
 	menuOptions := make([]discordgo.SelectMenuOption, 0)
 	for _, item := range pageStyles {
+		enginePrefix := "[VOICEVOX]"
+		if item.Engine == voicesettings.EngineAIVoice {
+			enginePrefix = "[AIVoice]"
+		}
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-			Label:       fmt.Sprintf("%s (%s)", item.SpeakerName, item.Style.Name),
-			Value:       strconv.Itoa(item.Style.ID),
-			Description: fmt.Sprintf("Speaker ID: %d", item.Style.ID),
+			Label:       fmt.Sprintf("%s %s (%s)", enginePrefix, item.SpeakerName, item.StyleName),
+			Value:       fmt.Sprintf("%s:%d", item.Engine, item.StyleID),
+			Description: fmt.Sprintf("Speaker ID: %d", item.StyleID),
 		})
 	}
 

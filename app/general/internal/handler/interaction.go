@@ -73,32 +73,6 @@ func (h *Handler) Interaction(dg *discordgo.Session, guildID string) (func(s *di
 		Handler: h.SetVoice,
 	}
 
-	commands["set-engine"] = &command{
-		AppCmd: &discordgo.ApplicationCommand{
-			Name:        "set-engine",
-			Description: "使用するTTSエンジンを設定します。",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "engine",
-					Description: "TTSエンジン",
-					Required:    false,
-					Choices: []*discordgo.ApplicationCommandOptionChoice{
-						{
-							Name:  "VOICEVOX",
-							Value: "voicevox",
-						},
-						{
-							Name:  "AIVoice",
-							Value: "aivoice",
-						},
-					},
-				},
-			},
-		},
-		Handler: h.SetEngine,
-	}
-
 	createdCommands := registerCommands(dg, guildID, lo.MapToSlice(commands, func(_ string, value *command) *discordgo.ApplicationCommand {
 		return value.AppCmd
 	}))
