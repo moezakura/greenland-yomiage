@@ -3,6 +3,8 @@ package handler
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/chun37/greenland-yomiage/internal/aivoice"
@@ -21,11 +23,73 @@ func (h *Handler) SetVoice(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	// speaker_idパラメータが指定されている場合は直接設定
 	if speakerIDOpt, ok := optionMap["speaker_id"]; ok {
-		speakerID := int(speakerIDOpt.IntValue())
+		speakerIDStr := speakerIDOpt.StringValue()
 		userID := i.Member.User.ID
 
+		// パラメータのパース
+		var engine voicesettings.EngineType
+		var speakerID int
+		var err error
+
+		// "engine:id" 形式または数字のみの形式をサポート
+		if strings.Contains(speakerIDStr, ":") {
+			parts := strings.SplitN(speakerIDStr, ":", 2)
+			if len(parts) != 2 {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "無効な形式です。例: voicevox:8 または aivoice:1001",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+			engine = voicesettings.EngineType(parts[0])
+			speakerID, err = strconv.Atoi(parts[1])
+			if err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "無効なSpeaker IDです。数字を指定してください。",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+		} else {
+			// 数字のみの場合は、デフォルトのVOICEVOXエンジンを使用
+			speakerID, err = strconv.Atoi(speakerIDStr)
+			if err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "無効なSpeaker IDです。数字を指定してください。",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+			engine = voicesettings.EngineVoicevox
+		}
+
+		// エンジンタイプの検証
+		if engine != voicesettings.EngineVoicevox && engine != voicesettings.EngineAIVoice {
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: fmt.Sprintf("無効なエンジンタイプです: %s (voicevox または aivoice を指定してください)", engine),
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
 		// 音声設定を更新
-		if err := h.props.VoiceSettings.SetSpeakerID(userID, speakerID); err != nil {
+		setting := voicesettings.UserSetting{
+			SpeakerID: speakerID,
+			Engine:    engine,
+		}
+		if err := h.props.VoiceSettings.SetUserSetting(userID, setting); err != nil {
 			log.Printf("音声設定の保存に失敗しました: %+v\n", err)
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -37,10 +101,14 @@ func (h *Handler) SetVoice(s *discordgo.Session, i *discordgo.InteractionCreate)
 			return
 		}
 
+		engineName := "VOICEVOX"
+		if engine == voicesettings.EngineAIVoice {
+			engineName = "AIVoice"
+		}
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("音声を Speaker ID %d に設定しました。", speakerID),
+				Content: fmt.Sprintf("音声を %s (Speaker ID: %d) に設定しました。", engineName, speakerID),
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})

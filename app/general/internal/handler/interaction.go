@@ -63,9 +63,9 @@ func (h *Handler) Interaction(dg *discordgo.Session, guildID string) (func(s *di
 			Description: "あなたの音声を設定します。",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
+					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "speaker_id",
-					Description: "Speaker ID (例: 1, 3, 8など)",
+					Description: "Speaker ID (例: voicevox:8, aivoice:1001, または数字のみで8)",
 					Required:    false,
 				},
 			},
