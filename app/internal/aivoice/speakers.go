@@ -29,12 +29,6 @@ func (a *AIVoice) GetSpeakers() ([]Speaker, error) {
 				{ID: 1, Name: "平静"},
 			},
 		},
-		{
-			Name: "紲星あかり",
-			Styles: []SpeakerStyle{
-				{ID: 2, Name: "平静"},
-			},
-		},
 	}
 
 	return speakers, nil

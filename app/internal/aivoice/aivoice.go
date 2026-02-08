@@ -27,7 +27,6 @@ func GetSpeakerConfig(speakerID int) SpeakerConfig {
 	configs := map[int]SpeakerConfig{
 		0: {Speaker: "akane", Style: "平静"},
 		1: {Speaker: "aoi", Style: "平静"},
-		2: {Speaker: "kotonoha", Style: "平静"},
 		// 必要に応じて追加
 	}
 
