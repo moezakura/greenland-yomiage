@@ -12,6 +12,7 @@ func NewHandlerProps(cfg config.Config, usecases Usecases, voiceSettings *voices
 		DictionaryAddUsecase: usecases.DictAddUsecase,
 		VoiceSettings:        voiceSettings,
 		VoiceVox:             externalDeps.VoiceVox,
+		AIVoice:              externalDeps.AIVoice,
 	}
 	return hp
 }

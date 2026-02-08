@@ -5,12 +5,13 @@ import (
 	"log"
 
 	"github.com/chun37/greenland-yomiage/internal/opus"
-	"github.com/chun37/greenland-yomiage/internal/wavgenerator"
+	"github.com/chun37/greenland-yomiage/internal/ttsengine"
+	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 	"golang.org/x/xerrors"
 )
 
 type Dependencies struct {
-	WavGenerator wavgenerator.Service
+	EngineSelector *ttsengine.Selector
 }
 
 type Usecase struct {
@@ -24,12 +25,13 @@ func NewUsecase(deps Dependencies) *Usecase {
 type UsecaseParam struct {
 	Text       string
 	SpeakerID  int
+	EngineType voicesettings.EngineType
 	OpusChunks chan []byte
 	Done       chan struct{}
 }
 
 func (u *Usecase) Do(param UsecaseParam) error {
-	wav, err := u.deps.WavGenerator.Generate(param.Text, param.SpeakerID)
+	wav, err := u.deps.EngineSelector.Generate(param.Text, param.SpeakerID, param.EngineType)
 	if err != nil {
 		return xerrors.Errorf("failed to generate wav: %w", err)
 	}

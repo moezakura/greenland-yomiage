@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/chun37/greenland-yomiage/internal/aivoice"
+	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 	"github.com/chun37/greenland-yomiage/internal/voicevox"
 )
 
@@ -47,37 +49,59 @@ func (h *Handler) SetVoice(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 
 	// パラメータが指定されていない場合はセレクトメニューを表示
-	speakers, err := h.props.VoiceVox.GetSpeakers()
+	voxSpeakers, err := h.props.VoiceVox.GetSpeakers()
 	if err != nil {
-		log.Printf("スピーカー一覧の取得に失敗しました: %+v\n", err)
+		log.Printf("VOICEVOX スピーカー一覧の取得に失敗しました: %+v\n", err)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "スピーカー一覧の取得に失敗しました。",
+				Content: "VOICEVOX スピーカー一覧の取得に失敗しました。",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
 		return
 	}
 
-	h.showVoiceSelectionPage(s, i, speakers, 0)
+	aiSpeakers, err := h.props.AIVoice.GetSpeakers()
+	if err != nil {
+		log.Printf("AIVoice スピーカー一覧の取得に失敗しました: %+v\n", err)
+		// AIVoiceはオプショナルなので、エラーでも続行（VOICEVOXのみ表示）
+		aiSpeakers = []aivoice.Speaker{}
+	}
+
+	h.showVoiceSelectionPage(s, i, voxSpeakers, aiSpeakers, 0)
 }
 
-func (h *Handler) showVoiceSelectionPage(s *discordgo.Session, i *discordgo.InteractionCreate, speakers []voicevox.Speaker, page int) {
+func (h *Handler) showVoiceSelectionPage(s *discordgo.Session, i *discordgo.InteractionCreate, voxSpeakers []voicevox.Speaker, aiSpeakers []aivoice.Speaker, page int) {
 	// 全てのスタイルをフラット化
-	allStyles := make([]struct {
+	type StyleItem struct {
 		SpeakerName string
-		Style       voicevox.SpeakerStyle
-	}, 0)
+		StyleName   string
+		StyleID     int
+		Engine      voicesettings.EngineType
+	}
+	allStyles := make([]StyleItem, 0)
 
-	for _, speaker := range speakers {
+	// VOICEVOX スピーカーを追加
+	for _, speaker := range voxSpeakers {
 		for _, style := range speaker.Styles {
-			allStyles = append(allStyles, struct {
-				SpeakerName string
-				Style       voicevox.SpeakerStyle
-			}{
+			allStyles = append(allStyles, StyleItem{
 				SpeakerName: speaker.Name,
-				Style:       style,
+				StyleName:   style.Name,
+				StyleID:     style.ID,
+				Engine:      voicesettings.EngineVoicevox,
+			})
+		}
+	}
+
+	// AIVoice スピーカーを追加
+	for _, speaker := range aiSpeakers {
+		for _, style := range speaker.Styles {
+			allStyles = append(allStyles, StyleItem{
+				SpeakerName: speaker.Name,
+				StyleName:   style.Name,
+				StyleID:     style.ID,
+				Engine:      voicesettings.EngineAIVoice,
 			})
 		}
 	}
@@ -102,10 +126,14 @@ func (h *Handler) showVoiceSelectionPage(s *discordgo.Session, i *discordgo.Inte
 	// セレクトメニューのオプションを作成
 	menuOptions := make([]discordgo.SelectMenuOption, 0)
 	for _, item := range pageStyles {
+		enginePrefix := "[VOICEVOX]"
+		if item.Engine == voicesettings.EngineAIVoice {
+			enginePrefix = "[AIVoice]"
+		}
 		menuOptions = append(menuOptions, discordgo.SelectMenuOption{
-			Label:       fmt.Sprintf("%s (%s)", item.SpeakerName, item.Style.Name),
-			Value:       strconv.Itoa(item.Style.ID),
-			Description: fmt.Sprintf("Speaker ID: %d", item.Style.ID),
+			Label:       fmt.Sprintf("%s %s (%s)", enginePrefix, item.SpeakerName, item.StyleName),
+			Value:       fmt.Sprintf("%s:%d", item.Engine, item.StyleID),
+			Description: fmt.Sprintf("Speaker ID: %d", item.StyleID),
 		})
 	}
 
