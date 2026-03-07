@@ -1,23 +1,40 @@
-# ステージ1: ビルド
-FROM golang:1.24-alpine AS builder
+# ステージ1: libdave ビルド
+FROM golang:1.24 AS dave-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake make git pkg-config g++ curl zip unzip tar ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/sh1ma/discordgo.git /discordgo
+
+WORKDIR /discordgo
+RUN bash scripts/setup-dave.sh
+
+# ステージ2: Go アプリビルド
+FROM golang:1.24 AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libopus-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN apk add --no-cache gcc musl-dev opus-dev
+COPY ./app/go.mod ./app/go.sum ./
+COPY --from=dave-builder /discordgo /discordgo
 
-COPY ./app/go.mod .
-COPY ./app/go.sum .
-
+RUN go mod edit -replace github.com/bwmarrin/discordgo=/discordgo
 RUN go mod download
 
 COPY ./app .
 
 RUN go build -o bot general/cmd/main.go
 
-# ステージ2: 実行
-FROM alpine:3.21
+# ステージ3: ランタイム
+FROM debian:bookworm-slim
 
-RUN apk add --no-cache ffmpeg opus ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg libopus0 ca-certificates libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /app/bot .

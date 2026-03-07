@@ -10,10 +10,8 @@ require (
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/samber/lo v1.38.1
-	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
-	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 )
 
-replace github.com/bwmarrin/discordgo => github.com/ozraru/discordgo v0.26.2-0.20250917201847-e6ee88434661
+replace github.com/bwmarrin/discordgo => github.com/sh1ma/discordgo v0.0.0-20260307072823-7cc378829a9e
