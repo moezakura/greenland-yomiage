@@ -17,4 +17,4 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 )
 
-replace github.com/bwmarrin/discordgo => 10.77.0.20/chun37/discordgo v0.0.0-20260425130029-54bf64b66fe5
+replace github.com/bwmarrin/discordgo => 10.77.0.20/chun37/discordgo v0.0.0-20260425131228-9f9c7fe3dd15

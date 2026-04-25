@@ -12,6 +12,8 @@
 10.77.0.20/chun37/discordgo v0.0.0-20260425123912-a09558a8d213/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
 10.77.0.20/chun37/discordgo v0.0.0-20260425130029-54bf64b66fe5 h1:767/arQWL0g88gWcrUBOnYX8cBz6BQgR/KSNSJzDhCU=
 10.77.0.20/chun37/discordgo v0.0.0-20260425130029-54bf64b66fe5/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
+10.77.0.20/chun37/discordgo v0.0.0-20260425131228-9f9c7fe3dd15 h1:hB9vBwqJB/iayIyYWGfYf8xBAQTSOXwkvcdDTMGblk0=
+10.77.0.20/chun37/discordgo v0.0.0-20260425131228-9f9c7fe3dd15/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
 github.com/disgoorg/godave v0.1.0 h1:3g0Zqzz+zNaxQTVLfCnl5eZKGqZk6cM/JLLbMKCtZQQ=
 github.com/disgoorg/godave v0.1.0/go.mod h1:OreAC3hpabr39bMVA+jwOVDq1EUPXH5A0XUBiZaDI1Y=
 github.com/disgoorg/godave/golibdave v0.1.0 h1:ga70vTb2pCdFgu+Jq8KteE9qLhezG5dI4H0vB/+6vBQ=
