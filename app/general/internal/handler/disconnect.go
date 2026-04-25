@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
@@ -45,7 +44,7 @@ func (h *Handler) Disconnect(s *discordgo.Session, u *discordgo.VoiceStateUpdate
 		return
 	}
 
-	if err := vc.Disconnect(context.Background()); err != nil {
+	if err := vc.Disconnect(); err != nil {
 		log.Println("failed to disconnect voice connection:", err)
 	}
 }

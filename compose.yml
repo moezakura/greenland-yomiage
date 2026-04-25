@@ -1,6 +1,19 @@
 services:
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+    ports:
+      - "50021:50021"
+    environment:
+      - VOICEVOX_CPU_NUM_THREADS=4
+    restart: unless-stopped
+
   bot:
     build: .
     env_file:
       - .env
+    environment:
+      - VOICEVOX_BASE_URL=http://voicevox:50021
+      - AIVOICE2_ENGINE_BASE_URL=${AIVOICE2_ENGINE_BASE_URL:-http://localhost:8000}
+    depends_on:
+      - voicevox
     restart: always

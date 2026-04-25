@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
@@ -20,7 +19,7 @@ func (h *Handler) Leave(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	if err := vc.Disconnect(context.Background()); err != nil {
+	if err := vc.Disconnect(); err != nil {
 		log.Println("failed to disconnect voice connection:", err)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
