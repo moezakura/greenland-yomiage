@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN git clone https://github.com/disgoorg/godave.git /godave-src
 WORKDIR /godave-src
-RUN bash scripts/install.sh
+RUN NON_INTERACTIVE=1 bash scripts/libdave_install.sh v1.1.0/cpp
 
 # ステージ2: Go アプリビルド
 FROM golang:1.24 AS builder
@@ -17,10 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # libdave ヘッダーとライブラリをコピー
-COPY --from=dave-builder /usr/local/lib/libdave* /usr/local/lib/
-COPY --from=dave-builder /usr/local/include/dave /usr/local/include/dave
-COPY --from=dave-builder /usr/local/lib/pkgconfig/dave.pc /usr/local/lib/pkgconfig/
+COPY --from=dave-builder /root/.local/lib/ /usr/local/lib/
+COPY --from=dave-builder /root/.local/include/ /usr/local/include/
+COPY --from=dave-builder /root/.local/lib/pkgconfig/dave.pc /usr/local/lib/pkgconfig/
 RUN ldconfig
+
+# dave.pc の prefix を /usr/local に書き換え
+RUN sed -i 's|prefix=.*|prefix=/usr/local|' /usr/local/lib/pkgconfig/dave.pc
 
 WORKDIR /app
 
@@ -44,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=builder /app/bot .
-COPY --from=dave-builder /usr/local/lib/libdave* /usr/local/lib/
+COPY --from=dave-builder /root/.local/lib/libdave* /usr/local/lib/
 RUN ldconfig
 
 CMD ["./bot"]
