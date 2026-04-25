@@ -18,13 +18,23 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build \
+          DOCKER_BUILDKIT=1 docker build \
+            --target dave-builder \
+            --cache-from 10.77.0.20/greenland/yomiage:dave-builder \
+            -t 10.77.0.20/greenland/yomiage:dave-builder \
+            .
+
+          DOCKER_BUILDKIT=1 docker build \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --cache-from 10.77.0.20/greenland/yomiage:dave-builder \
+            --cache-from 10.77.0.20/greenland/yomiage:latest \
             -t 10.77.0.20/greenland/yomiage:latest \
             -t 10.77.0.20/greenland/yomiage:${{ github.sha }} \
             .
 
       - name: Push Docker image
         run: |
+          docker push 10.77.0.20/greenland/yomiage:dave-builder
           docker push 10.77.0.20/greenland/yomiage:latest
           docker push 10.77.0.20/greenland/yomiage:${{ github.sha }}
 
@@ -110,4 +120,3 @@ jobs:
         run: |
           docker rmi 10.77.0.20/greenland/yomiage:latest 2>/dev/null || true
           docker rmi 10.77.0.20/greenland/yomiage:${{ github.sha }} 2>/dev/null || true
-          docker builder prune -f 2>/dev/null || true
