@@ -1,6 +1,7 @@
 package props
 
 import (
+	"github.com/bwmarrin/discordgo"
 	"github.com/chun37/greenland-yomiage/general/internal/config"
 	"github.com/chun37/greenland-yomiage/internal/aivoice"
 	"github.com/chun37/greenland-yomiage/internal/usecase/dict"
@@ -15,4 +16,5 @@ type HandlerProps struct {
 	VoiceSettings        *voicesettings.Settings
 	VoiceVox             *voicevox.VoiceVox
 	AIVoice              *aivoice.AIVoice
+	DAVESessionFactory   discordgo.DAVESessionFactory
 }

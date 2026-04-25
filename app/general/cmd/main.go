@@ -13,6 +13,7 @@ import (
 	"github.com/chun37/greenland-yomiage/general/internal/initialize"
 	"github.com/chun37/greenland-yomiage/general/internal/listener"
 	"github.com/chun37/greenland-yomiage/general/internal/speaker"
+	"github.com/chun37/greenland-yomiage/internal/dave"
 	"github.com/chun37/greenland-yomiage/internal/voicesettings"
 )
 
@@ -63,7 +64,8 @@ func main() {
 
 	externalDeps := initialize.NewExternalDependencies()
 	usecases := initialize.NewUsecases(externalDeps)
-	hp := initialize.NewHandlerProps(cfg, usecases, voiceSettings, externalDeps)
+	daveFactory := dave.NewFactory(dg.State.User.ID)
+	hp := initialize.NewHandlerProps(cfg, usecases, voiceSettings, externalDeps, daveFactory)
 
 	messages := make(chan speaker.SpeechMessage, 10)
 	soundPacket := make(chan *discordgo.Packet, 1)
