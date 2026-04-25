@@ -8,6 +8,8 @@
 10.77.0.20/chun37/discordgo v0.0.0-20260425121813-f27d97082ff0/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
 10.77.0.20/chun37/discordgo v0.0.0-20260425123045-d6a16a7add51 h1:Kk6S7oHbm8iliideqPhDA5h7mp5+23/F1kw0U9TDnyU=
 10.77.0.20/chun37/discordgo v0.0.0-20260425123045-d6a16a7add51/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
+10.77.0.20/chun37/discordgo v0.0.0-20260425123912-a09558a8d213 h1:u+nk6dNS0ziJb+BuhyZa0MAmWAf3LLtyz697pBp4/bQ=
+10.77.0.20/chun37/discordgo v0.0.0-20260425123912-a09558a8d213/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
 github.com/disgoorg/godave v0.1.0 h1:3g0Zqzz+zNaxQTVLfCnl5eZKGqZk6cM/JLLbMKCtZQQ=
 github.com/disgoorg/godave v0.1.0/go.mod h1:OreAC3hpabr39bMVA+jwOVDq1EUPXH5A0XUBiZaDI1Y=
 github.com/disgoorg/godave/golibdave v0.1.0 h1:ga70vTb2pCdFgu+Jq8KteE9qLhezG5dI4H0vB/+6vBQ=
