@@ -1,6 +1,8 @@
 package dave
 
 import (
+	"log"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/disgoorg/godave"
 	"github.com/disgoorg/godave/golibdave"
@@ -16,18 +18,22 @@ type callbacksAdapter struct {
 }
 
 func (a *callbacksAdapter) SendMLSKeyPackage(data []byte) error {
+	log.Printf("DAVE adapter: SendMLSKeyPackage (%d bytes)", len(data))
 	return a.cb.SendMLSKeyPackage(data)
 }
 
 func (a *callbacksAdapter) SendMLSCommitWelcome(data []byte) error {
+	log.Printf("DAVE adapter: SendMLSCommitWelcome (%d bytes)", len(data))
 	return a.cb.SendMLSCommitWelcome(data)
 }
 
 func (a *callbacksAdapter) SendReadyForTransition(transitionID uint16) error {
+	log.Printf("DAVE adapter: SendReadyForTransition (transitionID=%d)", transitionID)
 	return a.cb.SendReadyForTransition(transitionID)
 }
 
 func (a *callbacksAdapter) SendInvalidCommitWelcome(transitionID uint16) error {
+	log.Printf("DAVE adapter: SendInvalidCommitWelcome (transitionID=%d)", transitionID)
 	return a.cb.SendInvalidCommitWelcome(transitionID)
 }
 
@@ -75,34 +81,42 @@ func (a *sessionAdapter) RemoveUser(userID string) {
 }
 
 func (a *sessionAdapter) OnSelectProtocolAck(protocolVersion uint16) {
+	log.Printf("DAVE adapter: OnSelectProtocolAck version=%d", protocolVersion)
 	a.s.OnSelectProtocolAck(protocolVersion)
 }
 
 func (a *sessionAdapter) OnDavePrepareTransition(transitionID uint16, protocolVersion uint16) {
+	log.Printf("DAVE adapter: OnDavePrepareTransition transitionID=%d, version=%d", transitionID, protocolVersion)
 	a.s.OnDavePrepareTransition(transitionID, protocolVersion)
 }
 
 func (a *sessionAdapter) OnDaveExecuteTransition(transitionID uint16) {
+	log.Printf("DAVE adapter: OnDaveExecuteTransition transitionID=%d", transitionID)
 	a.s.OnDaveExecuteTransition(transitionID)
 }
 
 func (a *sessionAdapter) OnDavePrepareEpoch(epoch int, protocolVersion uint16) {
+	log.Printf("DAVE adapter: OnDavePrepareEpoch epoch=%d, version=%d", epoch, protocolVersion)
 	a.s.OnDavePrepareEpoch(epoch, protocolVersion)
 }
 
 func (a *sessionAdapter) OnDaveMLSExternalSenderPackage(data []byte) {
+	log.Printf("DAVE adapter: OnDaveMLSExternalSenderPackage (%d bytes)", len(data))
 	a.s.OnDaveMLSExternalSenderPackage(data)
 }
 
 func (a *sessionAdapter) OnDaveMLSProposals(data []byte) {
+	log.Printf("DAVE adapter: OnDaveMLSProposals (%d bytes)", len(data))
 	a.s.OnDaveMLSProposals(data)
 }
 
 func (a *sessionAdapter) OnDaveMLSPrepareCommitTransition(transitionID uint16, data []byte) {
+	log.Printf("DAVE adapter: OnDaveMLSPrepareCommitTransition transitionID=%d (%d bytes)", transitionID, len(data))
 	a.s.OnDaveMLSPrepareCommitTransition(transitionID, data)
 }
 
 func (a *sessionAdapter) OnDaveMLSWelcome(transitionID uint16, data []byte) {
+	log.Printf("DAVE adapter: OnDaveMLSWelcome transitionID=%d (%d bytes)", transitionID, len(data))
 	a.s.OnDaveMLSWelcome(transitionID, data)
 }
 
