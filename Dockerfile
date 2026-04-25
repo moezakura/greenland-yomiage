@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # ステージ1: libdave ビルド
 FROM golang:1.24 AS dave-builder
 
@@ -32,11 +34,15 @@ ENV GONOSUMCHECK=10.77.0.20/*
 ENV GOINSECURE=10.77.0.20/*
 
 COPY ./app/go.mod ./app/go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
 COPY ./app .
 
-RUN go build -o bot general/cmd/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -o bot general/cmd/main.go
 
 # ステージ3: ランタイム
 FROM debian:trixie-slim
