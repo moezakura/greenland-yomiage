@@ -39,7 +39,7 @@ COPY ./app .
 RUN go build -o bot general/cmd/main.go
 
 # ステージ3: ランタイム
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg libopus0 ca-certificates libstdc++6 \
