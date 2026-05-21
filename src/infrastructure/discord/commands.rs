@@ -9,7 +9,8 @@ use serenity::all::{
 
 use crate::domain::model::{DictionaryEntry, EngineId, SpeakerId, UserId, UserVoice};
 use crate::infrastructure::discord::events::Bot;
-use crate::infrastructure::discord::message_flow::{spawn_speech_worker, GuildState};
+use crate::infrastructure::discord::message_flow::{spawn_speech_worker, GuildState, SpeechWorkerDeps};
+use crate::infrastructure::discord::voice_activity::VoiceActivityHandler;
 use crate::infrastructure::discord::{engine_display_name, playback, voice_pager};
 
 /// 対象ギルドにスラッシュコマンドを登録する（冪等）。
@@ -126,14 +127,33 @@ async fn join(ctx: &Context, cmd: &CommandInteraction, bot: &Bot) -> Result<()> 
         return respond(ctx, cmd, "音声機能が利用できません。", false).await;
     };
 
-    if let Err(error) = manager.join(guild_id, channel_id).await {
-        tracing::error!(%error, "ボイスチャンネルへの参加に失敗しました");
-        return respond(ctx, cmd, "ボイスチャンネルへの参加に失敗しました。", false).await;
+    let call = match manager.join(guild_id, channel_id).await {
+        Ok(call) => call,
+        Err(error) => {
+            tracing::error!(%error, "ボイスチャンネルへの参加に失敗しました");
+            return respond(ctx, cmd, "ボイスチャンネルへの参加に失敗しました。", false).await;
+        }
+    };
+
+    // F1: 発話アクティビティ監視のため VoiceTick イベントハンドラを登録する。
+    if bot.behavior.wait_while_speaking {
+        call.lock().await.add_global_event(
+            songbird::Event::Core(songbird::CoreEvent::VoiceTick),
+            VoiceActivityHandler::new(bot.speaking.clone(), guild_id.get()),
+        );
     }
 
     // 合成ワーカーを起動し、ギルド状態を登録する。
     // 既存の状態があれば置き換わり、古いワーカーは Sender ドロップで終了する。
-    let speech_tx = spawn_speech_worker(bot.synthesize.clone(), manager.clone(), guild_id);
+    let speech_tx = spawn_speech_worker(
+        SpeechWorkerDeps {
+            synthesize: bot.synthesize.clone(),
+            songbird: manager.clone(),
+            speaking: bot.speaking.clone(),
+            behavior: bot.behavior.clone(),
+        },
+        guild_id,
+    );
     bot.guilds.insert(
         guild_id.get(),
         GuildState {

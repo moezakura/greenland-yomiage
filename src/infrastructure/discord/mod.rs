@@ -4,6 +4,7 @@ pub mod commands;
 pub mod events;
 pub mod message_flow;
 pub mod playback;
+pub mod voice_activity;
 pub mod voice_pager;
 
 use crate::domain::model::EngineId;

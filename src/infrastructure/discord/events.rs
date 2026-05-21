@@ -3,18 +3,23 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use serenity::all::{Context, EventHandler, GuildId, Interaction, Message, Ready, VoiceState};
+use serenity::all::{
+    Context, EventHandler, GuildId, Interaction, Message, Ready, UserId, VoiceState,
+};
 
 use crate::application::add_word::AddWordUseCase;
 use crate::application::engine_registry::TtsEngineRegistry;
+use crate::application::filter_chain::MessageFilterChain;
 use crate::application::list_speakers::ListSpeakersUseCase;
 use crate::application::rule_pipeline::RulePipeline;
 use crate::application::set_voice::SetVoiceUseCase;
 use crate::application::synthesize::SynthesizeUseCase;
-use crate::config::Config;
+use crate::config::{BehaviorConfig, Config};
+use crate::domain::message_filter::IncomingMessage;
 use crate::domain::model::UserId as DomainUserId;
 use crate::domain::voice_store::VoiceSettingsStore;
 use crate::infrastructure::discord::message_flow::{GuildState, SpeechJob};
+use crate::infrastructure::discord::voice_activity::SpeakingTracker;
 use crate::infrastructure::discord::{commands, voice_pager};
 
 /// serenity のイベントハンドラ。全ユースケースと実行時状態を保持する。
@@ -35,6 +40,12 @@ pub struct Bot {
     pub set_voice: Arc<SetVoiceUseCase>,
     /// 辞書登録ユースケース。
     pub add_word: Arc<AddWordUseCase>,
+    /// 文脈ベースのメッセージフィルタ（F3 VC未参加スキップ等）。
+    pub filters: Arc<MessageFilterChain>,
+    /// VC の発話アクティビティトラッカー（F1）。
+    pub speaking: Arc<SpeakingTracker>,
+    /// 「空気読み」挙動設定。
+    pub behavior: Arc<BehaviorConfig>,
     /// ギルド ID → 実行時状態。
     pub guilds: Arc<DashMap<u64, GuildState>>,
 }
@@ -62,13 +73,31 @@ impl Bot {
             return Ok(());
         }
 
+        // 文脈ベースのフィルタ（F3 VC未参加スキップ等）。
+        if !self.filters.is_empty() {
+            let incoming = IncomingMessage {
+                guild_id: guild_id.get(),
+                author_id: msg.author.id.get(),
+                channel_id: msg.channel_id.get(),
+                author_in_bot_voice_channel: author_in_bot_vc(ctx, guild_id, msg.author.id),
+            };
+            if !self.filters.evaluate(&incoming) {
+                return Ok(());
+            }
+        }
+
         // 前処理。スキップ判定や前処理後の空文字はここで弾かれる。
         let Some(text) = self.pipeline.run(&msg.content) else {
             return Ok(());
         };
 
         let voice = self.store.get(DomainUserId(msg.author.id.get())).await;
-        if speech_tx.send(SpeechJob { text, voice }).await.is_err() {
+        let job = SpeechJob {
+            user_id: msg.author.id.get(),
+            text,
+            voice,
+        };
+        if speech_tx.send(job).await.is_err() {
             tracing::warn!(%guild_id, "合成キューが閉じているため読み上げをスキップしました");
         }
         Ok(())
@@ -124,6 +153,20 @@ impl Bot {
         }
         Ok(())
     }
+}
+
+/// 投稿者が Bot と同じボイスチャンネルにいるか判定する。
+fn author_in_bot_vc(ctx: &Context, guild_id: GuildId, author_id: UserId) -> bool {
+    let Some(guild) = ctx.cache.guild(guild_id) else {
+        return false;
+    };
+    let bot_id = ctx.cache.current_user().id;
+    let bot_channel = guild.voice_states.get(&bot_id).and_then(|s| s.channel_id);
+    let author_channel = guild
+        .voice_states
+        .get(&author_id)
+        .and_then(|s| s.channel_id);
+    bot_channel.is_some() && bot_channel == author_channel
 }
 
 #[serenity::async_trait]
