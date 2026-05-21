@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "ビルド・デプロイするブランチ"
+        description: "ビルド・デプロイするブランチ（未指定なら実行ブランチ）"
         required: false
-        default: master
+        default: ""
 
 jobs:
   build-and-deploy:
