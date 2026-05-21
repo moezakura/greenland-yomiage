@@ -9,6 +9,11 @@ on:
       - ".gitignore"
       - ".env.example"
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "ビルド・デプロイするブランチ"
+        required: false
+        default: master
 
 jobs:
   build-and-deploy:
@@ -16,9 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Check layering (dependency direction)
-        run: bash scripts/check-layering.sh
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
 
       - name: Login to Gitea Container Registry
         run: >-

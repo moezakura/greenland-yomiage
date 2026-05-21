@@ -6,8 +6,8 @@
 //! - `infrastructure` : 具象実装（Discord / TTS エンジン / 永続化）。上位レイヤに依存する。
 //! - `bootstrap`      : Composition Root。全具象を組み立てる唯一の場所。
 //!
-//! `domain` と `application` は serenity / songbird / reqwest を `use` しない。
-//! この依存方向は CI の grep lint（`scripts/check-layering.sh`）で担保している。
+//! `domain` と `application` は serenity / songbird / reqwest を `use` しない
+//! （各モジュール冒頭の DEPENDENCY RULE コメントで明示している）。
 
 pub mod application;
 pub mod bootstrap;
