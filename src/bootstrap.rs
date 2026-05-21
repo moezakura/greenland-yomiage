@@ -14,16 +14,20 @@ use tracing_subscriber::EnvFilter;
 
 use crate::application::add_word::AddWordUseCase;
 use crate::application::engine_registry::TtsEngineRegistry;
+use crate::application::filter_chain::MessageFilterChain;
+use crate::application::filters::VcMembershipFilter;
 use crate::application::list_speakers::ListSpeakersUseCase;
 use crate::application::rule_pipeline::RulePipeline;
 use crate::application::rules::default_rules;
 use crate::application::set_voice::SetVoiceUseCase;
 use crate::application::synthesize::SynthesizeUseCase;
 use crate::config::Config;
+use crate::domain::message_filter::MessageFilter;
 use crate::domain::model::EngineId;
 use crate::domain::tts::{DictionaryWriter, SpeakerDirectory, TtsEngine};
 use crate::domain::voice_store::VoiceSettingsStore;
 use crate::infrastructure::discord::events::Bot;
+use crate::infrastructure::discord::voice_activity::SpeakingTracker;
 use crate::infrastructure::persistence::json_voice_store::JsonVoiceStore;
 use crate::infrastructure::tts::aivoice::AivoiceEngine;
 use crate::infrastructure::tts::voicevox::VoicevoxEngine;
@@ -105,6 +109,19 @@ pub async fn run() -> Result<()> {
     let set_voice = Arc::new(SetVoiceUseCase::new(store.clone()));
     let add_word = Arc::new(AddWordUseCase::new(registry.clone()));
 
+    // --- 「空気読み」系コンポーネント ---
+    let behavior = Arc::new(config.behavior.clone());
+
+    // F3: 文脈ベースのメッセージフィルタ。設定で有効なものだけ登録する。
+    let mut filters: Vec<Box<dyn MessageFilter>> = Vec::new();
+    if config.behavior.skip_non_vc {
+        filters.push(Box::new(VcMembershipFilter));
+    }
+    let filters = Arc::new(MessageFilterChain::new(filters));
+
+    // F1: VC の発話アクティビティトラッカー。
+    let speaking = Arc::new(SpeakingTracker::new());
+
     let bot = Bot {
         config: config.clone(),
         registry,
@@ -114,6 +131,9 @@ pub async fn run() -> Result<()> {
         list_speakers,
         set_voice,
         add_word,
+        filters,
+        speaking,
+        behavior,
         guilds: Arc::new(DashMap::new()),
     };
 

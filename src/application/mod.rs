@@ -5,6 +5,8 @@
 
 pub mod add_word;
 pub mod engine_registry;
+pub mod filter_chain;
+pub mod filters;
 pub mod list_speakers;
 pub mod rule_pipeline;
 pub mod rules;
