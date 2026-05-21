@@ -44,8 +44,24 @@ pub fn init_tracing() {
     }
 }
 
+/// rustls の `CryptoProvider` をプロセス既定として明示インストールする。
+///
+/// 依存ツリーに aws-lc-rs と ring の両方が含まれると rustls が自動選択できず、
+/// TLS ハンドシェイク時（songbird のボイス接続など）にパニックする。ここで
+/// aws-lc-rs に一意に固定して回避する。
+fn install_crypto_provider() {
+    if rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .is_err()
+    {
+        tracing::warn!("rustls CryptoProvider は既にインストール済みです");
+    }
+}
+
 /// アプリ全体を組み立てて起動する。
 pub async fn run() -> Result<()> {
+    install_crypto_provider();
+
     let config = Arc::new(Config::from_env().context("設定の読み込みに失敗しました")?);
 
     // --- インフラ層: TTS エンジン具象 ---
