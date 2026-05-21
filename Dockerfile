@@ -1,59 +1,34 @@
 # syntax=docker/dockerfile:1
 
-# ステージ1: libdave ビルド
-FROM golang:1.24 AS dave-builder
+# ===== ビルドステージ =====
+FROM rust:1-slim-trixie AS builder
 
+# songbird の音声コーデック（opus2）のビルドに cmake / C コンパイラが必要。
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake make git pkg-config g++ curl zip unzip tar ca-certificates \
+    cmake build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/*
-
-RUN git clone https://github.com/disgoorg/godave.git /godave-src
-WORKDIR /godave-src
-RUN NON_INTERACTIVE=1 bash scripts/libdave_install.sh v1.1.0/cpp
-
-# ステージ2: Go アプリビルド
-FROM golang:1.24 AS builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopus-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-# libdave ヘッダーとライブラリをコピー
-COPY --from=dave-builder /root/.local/lib/ /usr/local/lib/
-COPY --from=dave-builder /root/.local/include/ /usr/local/include/
-COPY --from=dave-builder /root/.local/lib/pkgconfig/dave.pc /usr/local/lib/pkgconfig/
-RUN ldconfig
-
-# dave.pc の prefix を /usr/local に書き換え
-RUN sed -i 's|prefix=.*|prefix=/usr/local|' /usr/local/lib/pkgconfig/dave.pc
 
 WORKDIR /app
 
-ENV GOPRIVATE=10.77.0.20/*
-ENV GONOSUMCHECK=10.77.0.20/*
-ENV GOINSECURE=10.77.0.20/*
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 
-COPY ./app/go.mod ./app/go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download
+# レジストリと target を BuildKit キャッシュに乗せる。
+# target はキャッシュマウント上にあるため、同一 RUN 内でバイナリを取り出す。
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release \
+    && cp target/release/yomiage /usr/local/bin/yomiage
 
-COPY ./app .
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go build -o bot general/cmd/main.go
-
-# ステージ3: ランタイム
+# ===== ランタイムステージ =====
 FROM debian:trixie-slim
 
+# rustls を使うため OpenSSL は不要。TLS 検証用に CA 証明書のみ入れる。
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg libopus0 ca-certificates libstdc++6 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/bot .
-COPY --from=dave-builder /root/.local/lib/libdave* /usr/local/lib/
-RUN ldconfig
+COPY --from=builder /usr/local/bin/yomiage /usr/local/bin/yomiage
 
-CMD ["./bot"]
+CMD ["yomiage"]
