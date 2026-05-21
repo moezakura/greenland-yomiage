@@ -24,24 +24,31 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+          buildkitd-config-inline: |
+            [registry."10.77.0.20"]
+              http = true
+              insecure = true
+
       - name: Login to Gitea Container Registry
         run: >-
           echo "${{ secrets.REGISTRY_TOKEN }}"
           | docker login 10.77.0.20 -u ${{ github.actor }} --password-stdin
 
-      - name: Build Docker image
+      # cargo-chef の依存レイヤをレジストリの buildcache タグに保存・再利用する。
+      # ランナーが使い捨てでも依存の再コンパイルを省け、ビルドが大幅に速くなる。
+      - name: Build and push Docker image
         run: |
-          DOCKER_BUILDKIT=1 docker build \
-            --build-arg BUILDKIT_INLINE_CACHE=1 \
-            --cache-from 10.77.0.20/greenland/yomiage:latest \
-            -t 10.77.0.20/greenland/yomiage:latest \
-            -t 10.77.0.20/greenland/yomiage:${{ github.sha }} \
+          docker buildx build \
+            --cache-from type=registry,ref=10.77.0.20/greenland/yomiage:buildcache \
+            --cache-to type=registry,ref=10.77.0.20/greenland/yomiage:buildcache,mode=max,ignore-error=true \
+            --tag 10.77.0.20/greenland/yomiage:latest \
+            --tag 10.77.0.20/greenland/yomiage:${{ github.sha }} \
+            --push \
             .
-
-      - name: Push Docker image
-        run: |
-          docker push 10.77.0.20/greenland/yomiage:latest
-          docker push 10.77.0.20/greenland/yomiage:${{ github.sha }}
 
       - name: Deploy to YUNAGI
         uses: appleboy/ssh-action@v1
@@ -96,10 +103,10 @@ jobs:
           import json, sys, urllib.request
 
           data = json.load(sys.stdin)
-          # latest と sha256: を除いたコミットSHAタグのみ抽出
+          # latest / buildcache / sha256: を除いたコミットSHAタグのみ抽出
           sha_versions = [p for p in data if p['name'] == 'yomiage'
                           and not p['version'].startswith('sha256:')
-                          and p['version'] != 'latest']
+                          and p['version'] not in ('latest', 'buildcache')]
           # 新しい順にソート
           sha_versions.sort(key=lambda x: x['created_at'], reverse=True)
 
@@ -119,9 +126,3 @@ jobs:
           if not to_delete:
               print('No old versions to delete')
           "
-
-      - name: Cleanup CI host
-        if: always()
-        run: |
-          docker rmi 10.77.0.20/greenland/yomiage:latest 2>/dev/null || true
-          docker rmi 10.77.0.20/greenland/yomiage:${{ github.sha }} 2>/dev/null || true
