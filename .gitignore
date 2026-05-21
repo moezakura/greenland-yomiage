@@ -1092,9 +1092,8 @@ abstract.record*
 ### GPG template
 secring.*
 
-# custom
-bot
-open_jtalk_dic_utf_8*
-app/cmd/*
-app/yomiage/*
+# custom (yomiage / Rust)
+/target
+/data
+*.json.tmp
 .env
