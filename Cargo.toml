@@ -10,10 +10,12 @@ dashmap = "6.2.1"
 once_cell = "1.21.4"
 regex = "1.12.3"
 reqwest = { version = "0.13.3", default-features = false, features = ["json", "rustls", "http2", "charset", "query"] }
+rustls = "0.23.40"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 serenity = { version = "0.12.5", features = ["voice"] }
 songbird = { version = "0.6.0", features = ["builtin-queue"] }
+symphonia = { version = "0.5", default-features = false, features = ["wav", "pcm"] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["full"] }
 tracing = "0.1.44"
