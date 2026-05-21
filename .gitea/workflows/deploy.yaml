@@ -3,6 +3,10 @@ name: Build and Deploy
 on:
   push:
     branches: ["master"]
+    paths-ignore:
+      - ".gitea/**"
+      - "README.md"
+      - ".gitignore"
   workflow_dispatch:
 
 jobs:
