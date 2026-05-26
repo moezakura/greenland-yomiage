@@ -29,6 +29,23 @@ static EMOJI_RE: Lazy<Regex> = Lazy::new(|| {
     .unwrap()
 });
 
+/// 先頭が `;` のメッセージは読み上げない（コメントアウト用）。
+pub struct SemicolonPrefixRule;
+
+impl TextRule for SemicolonPrefixRule {
+    fn name(&self) -> &'static str {
+        "semicolon_prefix"
+    }
+
+    fn apply(&self, text: &str) -> RuleOutcome {
+        if text.starts_with(';') || text.starts_with('；') {
+            RuleOutcome::Skip
+        } else {
+            RuleOutcome::Continue(text.to_owned())
+        }
+    }
+}
+
 /// URL を「URL省略」に置換するルール。
 pub struct UrlRule;
 
@@ -101,6 +118,7 @@ impl TextRule for UnicodeEmojiRule {
 /// 標準の前処理ルール一式を Go 版と同じ順序で返す。
 pub fn default_rules() -> Vec<Box<dyn TextRule>> {
     vec![
+        Box::new(SemicolonPrefixRule),
         Box::new(UrlRule),
         Box::new(CodeBlockRule),
         Box::new(CustomEmojiRule),
@@ -136,6 +154,13 @@ mod tests {
     fn emoji_only_message_is_skipped() {
         let pipeline = RulePipeline::new(default_rules());
         assert_eq!(pipeline.run("😀😀😀"), None);
+    }
+
+    #[test]
+    fn semicolon_prefix_is_skipped() {
+        let pipeline = RulePipeline::new(default_rules());
+        assert_eq!(pipeline.run("; これは読まれない"), None);
+        assert_eq!(pipeline.run("；全角もスキップ"), None);
     }
 
     #[test]
