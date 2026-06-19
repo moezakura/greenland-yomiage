@@ -24,6 +24,11 @@ impl EngineId {
         Self("aivoice".to_owned())
     }
 
+    /// Tsubaki AI（tsubaki-ai.chun37.com）エンジンの識別子。
+    pub fn tsubaki() -> Self {
+        Self("tsubaki".to_owned())
+    }
+
     /// 内部文字列を借用する。
     pub fn as_str(&self) -> &str {
         &self.0
