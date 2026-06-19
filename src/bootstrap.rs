@@ -30,6 +30,7 @@ use crate::infrastructure::discord::events::Bot;
 use crate::infrastructure::discord::voice_activity::SpeakingTracker;
 use crate::infrastructure::persistence::json_voice_store::JsonVoiceStore;
 use crate::infrastructure::tts::aivoice::AivoiceEngine;
+use crate::infrastructure::tts::tsubaki::TsubakiEngine;
 use crate::infrastructure::tts::voicevox::VoicevoxEngine;
 
 /// 構造化ログを初期化する。
@@ -78,6 +79,10 @@ pub async fn run() -> Result<()> {
         http.clone(),
         config.aivoice_base_url.clone(),
     ));
+    let tsubaki = Arc::new(TsubakiEngine::new(
+        http.clone(),
+        config.tsubaki_base_url.clone(),
+    ));
 
     // --- アプリケーション層: レジストリ（ここで trait object 化する） ---
     let mut registry = TtsEngineRegistry::new(EngineId::voicevox());
@@ -92,6 +97,11 @@ pub async fn run() -> Result<()> {
     let aivoice_engine: Arc<dyn TtsEngine> = aivoice.clone();
     let aivoice_dir: Arc<dyn SpeakerDirectory> = aivoice.clone();
     registry.register(aivoice_engine, Some(aivoice_dir), None);
+
+    // Tsubaki AI は単一話者・辞書 API なし。
+    let tsubaki_engine: Arc<dyn TtsEngine> = tsubaki.clone();
+    let tsubaki_dir: Arc<dyn SpeakerDirectory> = tsubaki.clone();
+    registry.register(tsubaki_engine, Some(tsubaki_dir), None);
 
     let registry = Arc::new(registry);
 

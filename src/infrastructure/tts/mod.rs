@@ -2,4 +2,5 @@
 
 pub mod aivoice;
 pub mod http;
+pub mod tsubaki;
 pub mod voicevox;

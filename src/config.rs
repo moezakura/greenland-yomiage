@@ -15,6 +15,8 @@ pub struct Config {
     pub voicevox_base_url: String,
     /// AIVoice2 Engine のベース URL。
     pub aivoice_base_url: String,
+    /// Tsubaki AI Engine のベース URL（既定: `https://tsubaki-ai.chun37.com`）。
+    pub tsubaki_base_url: String,
     /// ユーザー音声設定 JSON ファイルのパス。
     pub voice_settings_path: String,
     /// 「空気読み」系の挙動設定。
@@ -63,6 +65,10 @@ impl Config {
             aivoice_base_url: trim_url(optional(
                 "AIVOICE2_ENGINE_BASE_URL",
                 "http://localhost:8000",
+            )),
+            tsubaki_base_url: trim_url(optional(
+                "TSUBAKI_BASE_URL",
+                "https://tsubaki-ai.chun37.com",
             )),
             voice_settings_path: optional("VOICE_SETTINGS_PATH", "data/voice_settings.json"),
             behavior: BehaviorConfig::from_env(),
