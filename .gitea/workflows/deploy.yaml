@@ -58,33 +58,28 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: REGISTRY_TOKEN
           script: |
+            set -eu
             IMAGE="10.77.0.20/greenland/yomiage:latest"
 
-            # Giteaレジストリ認証
-            echo "$REGISTRY_TOKEN" | sudo podman login --tls-verify=false 10.77.0.20 -u ${{ github.actor }} --password-stdin
+            # Giteaレジストリ認証（mox rootless podman。LAN内平文HTTPのため --tls-verify=false が必須）
+            echo "$REGISTRY_TOKEN" | podman login --tls-verify=false 10.77.0.20 -u ${{ github.actor }} --password-stdin
 
-            # 旧コンテナ停止・削除（初回デプロイ時は存在しないのでエラー無視）
-            sudo podman stop greenland-yomiage 2>/dev/null || true
-            sudo podman rm greenland-yomiage 2>/dev/null || true
+            # 最新イメージ取得（set -eu により失敗時は即中断。旧バージョンのまま稼働継続）
+            podman pull --tls-verify=false $IMAGE
 
-            # 最新イメージ取得
-            sudo podman pull --tls-verify=false $IMAGE
+            # コンテナは Quadlet(systemd user unit greenland-yomiage.service) が管理する。
+            # Pull=never のためストアのイメージを更新した上で restart すると新イメージで再作成される。
+            # podman stop/rm/run を直接実行すると systemd と競合するため絶対に行わない。
+            systemctl --user restart greenland-yomiage.service
 
-            # コンテナ起動
-            sudo podman run -d \
-              --name greenland-yomiage \
-              --restart always \
-              --env-file /opt/greenland-yomiage/.env \
-              -v /opt/greenland-yomiage/data:/app/data:Z \
-              $IMAGE
-
-            # ヘルスチェック（10秒後にコンテナが生存しているか）
+            # ヘルスチェック（10秒後にサービスが active かつコンテナが Up であること）
             sleep 10
-            if sudo podman ps --filter name=greenland-yomiage --format '{{.Status}}' | grep -q 'Up'; then
+            if [ "$(systemctl --user is-active greenland-yomiage.service)" = "active" ] && podman ps --filter name=^greenland-yomiage$ --format '{{.Status}}' | grep -q 'Up'; then
               echo "Deploy successful: container is running"
             else
-              echo "Deploy FAILED: container is not running"
-              sudo podman logs greenland-yomiage
+              echo "Deploy FAILED: service is not healthy"
+              podman logs --tail 50 greenland-yomiage 2>/dev/null || true
+              systemctl --user status greenland-yomiage.service --no-pager || true
               exit 1
             fi
         env:
