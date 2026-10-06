@@ -7,6 +7,7 @@ Discord用テキスト読み上げBot。テキストチャンネルに投稿さ�
 ## 主な機能
 
 - 📢 テキストメッセージの自動音声読み上げ（投稿順を保証）
+- 🌐 複数サーバー対応（参加している全サーバーで利用可能）
 - 🔗 URL・コードブロック・絵文字・メンションの前処理（読み上げスキップ／置換）
 - 📚 辞書機能による単語登録
 - 🔄 複数の TTS エンジンに対応（VOICEVOX / AIVoice2 / Tsubaki AI）
@@ -49,6 +50,14 @@ src/
 1 ファイル追加して `bootstrap.rs` に登録するだけで増やせる。依存方向は各レイヤの
 モジュール冒頭に記した DEPENDENCY RULE コメントで明示している。
 
+## 複数サーバー対応
+
+Bot は参加している全サーバー（ギルド）で同時に利用できます。サーバー専用の環境変数設定は不要です。
+
+- **スラッシュコマンド**: 起動時に参加中の全ギルドへ登録し、実行中に新たに参加したギルドへも自動で登録します。
+- **読み上げ対象チャンネル**: 各サーバーで `/join` を実行したテキストチャンネルが、そのサーバーの読み上げ対象になります。
+- **音声設定**: サーバーごと × ユーザーごとに保存されます。同じユーザーでもサーバーが違えば別の音声設定を持てます。
+
 ## セットアップ
 
 ### 環境変数
@@ -62,8 +71,6 @@ cp .env.example .env
 | 環境変数 | 必須 | 説明 |
 |---|---|---|
 | `DISCORD_TOKEN` | ✓ | Discord Bot トークン |
-| `DISCORD_GUILD_ID` | ✓ | 対象ギルド ID |
-| `DISCORD_YOMIAGE_CH_ID` | ✓ | 読み上げ対象チャンネルの初期値 |
 | `VOICEVOX_BASE_URL` | | VOICEVOX Engine の URL（既定: `http://localhost:50021`） |
 | `AIVOICE2_ENGINE_BASE_URL` | | AIVoice2 Engine の URL（既定: `http://localhost:8000`） |
 | `TSUBAKI_BASE_URL` | | Tsubaki AI Engine の URL（既定: `https://tsubaki-ai.chun37.com`） |
