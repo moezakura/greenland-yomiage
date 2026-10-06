@@ -1,8 +1,10 @@
 //! `VoiceSettingsStore` の JSON ファイル実装。
 //!
-//! Go 版（`voicesettings/settings.go`）と互換のスキーマを読み書きする。旧形式
-//! (`user_settings`) から新形式 (`user_settings_v2`) への自動マイグレーションも行う。
-//! 書き込みは一時ファイルへ出力してから `rename` する（アトミック書き込み）。
+//! 音声設定はサーバー（ギルド）×ユーザー単位で保存する。現行スキーマ（v3）のキーは
+//! `"<guild_id>:<user_id>"`。旧形式（v1 `user_settings` / v2 `user_settings_v2`）は
+//! ギルド情報を持たないため移行先が確定できず、ロード時に warning を出して破棄する
+//! （ファイルは v3 のみの形式で書き直す）。書き込みは一時ファイルへ出力してから
+//! `rename` する（アトミック書き込み）。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -27,12 +29,15 @@ struct SettingsDto {
     default_speaker_id: u32,
     #[serde(default = "default_engine")]
     default_engine: String,
-    /// 旧形式（v1）。読み込み専用で、保存時には出力しない。
+    /// 旧形式（v1、サーバー非対応）。ロード時に破棄するため保存時には出力しない。
     #[serde(default, skip_serializing)]
     user_settings: HashMap<String, u32>,
-    /// 新形式（v2）。
-    #[serde(default)]
+    /// 旧形式（v2、サーバー非対応）。ロード時に破棄するため保存時には出力しない。
+    #[serde(default, skip_serializing)]
     user_settings_v2: HashMap<String, UserSettingDto>,
+    /// 現行形式（v3）。キーは `"<guild_id>:<user_id>"`。
+    #[serde(default)]
+    user_settings_v3: HashMap<String, UserSettingDto>,
 }
 
 /// ユーザー 1 人ぶんの音声設定の JSON 表現。
@@ -58,27 +63,38 @@ fn default_voice() -> UserVoice {
     }
 }
 
+/// ギルド ID とユーザー ID から保存キーを組み立てる。
+fn make_key(guild_id: u64, user_id: u64) -> String {
+    format!("{guild_id}:{user_id}")
+}
+
+/// `"<guild_id>:<user_id>"` 形式の保存キーをパースする。
+fn parse_key(key: &str) -> Option<(u64, u64)> {
+    let (guild_id, user_id) = key.split_once(':')?;
+    Some((guild_id.parse().ok()?, user_id.parse().ok()?))
+}
+
 /// JSON ファイルに永続化するユーザー音声設定ストア。
 pub struct JsonVoiceStore {
     path: PathBuf,
     /// デフォルト音声設定（ロード後は不変）。
     default_voice: UserVoice,
-    /// ユーザー ID → 音声設定。
-    users: RwLock<HashMap<u64, UserVoice>>,
+    /// （ギルド ID, ユーザー ID）→ 音声設定。
+    users: RwLock<HashMap<(u64, u64), UserVoice>>,
 }
 
 impl JsonVoiceStore {
     /// 設定ファイルを読み込んでストアを構築する。
     ///
-    /// ファイルが存在しない場合はデフォルト設定で新規作成する。旧形式が見つかった
-    /// 場合は新形式へマイグレーションして保存する。
+    /// ファイルが存在しない場合はデフォルト設定で新規作成する。旧形式（v1/v2）が
+    /// 見つかった場合は warning を出して破棄し、現行形式（v3）のみで書き直す。
     pub async fn load(path: impl AsRef<Path>) -> Result<Self, StoreError> {
         let path = path.as_ref().to_path_buf();
 
         let (default_voice, users, dirty) = match tokio::fs::read(&path).await {
             Ok(bytes) => {
-                let dto: SettingsDto = serde_json::from_slice(&bytes)
-                    .map_err(|e| StoreError::Serde(e.to_string()))?;
+                let dto: SettingsDto =
+                    serde_json::from_slice(&bytes).map_err(|e| StoreError::Serde(e.to_string()))?;
                 Self::dto_into_state(dto)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -93,7 +109,7 @@ impl JsonVoiceStore {
             users: RwLock::new(users),
         };
 
-        // 新規作成・マイグレーション時はファイルへ反映する。
+        // 新規作成・旧形式の破棄時は現行形式でファイルへ反映する。
         if dirty {
             store.persist().await?;
         }
@@ -101,44 +117,40 @@ impl JsonVoiceStore {
     }
 
     /// JSON DTO から内部状態（デフォルト設定 / ユーザー設定 / 要保存フラグ）を組み立てる。
-    fn dto_into_state(dto: SettingsDto) -> (UserVoice, HashMap<u64, UserVoice>, bool) {
+    ///
+    /// 旧形式（v1/v2）はギルド不明のため正当な移行先がなく、warning を出して破棄する。
+    /// 破棄が発生した場合は現行形式のみでファイルを書き直すため `true` を返す。
+    fn dto_into_state(dto: SettingsDto) -> (UserVoice, HashMap<(u64, u64), UserVoice>, bool) {
         let default_voice = UserVoice {
             engine: EngineId::new(dto.default_engine),
             speaker: SpeakerId(dto.default_speaker_id),
         };
 
-        let mut users = HashMap::new();
-        let mut migrated = false;
-
-        if dto.user_settings_v2.is_empty() && !dto.user_settings.is_empty() {
-            // 旧形式 → 新形式へマイグレーション（エンジンは VOICEVOX 固定）。
-            migrated = true;
-            for (uid, speaker_id) in dto.user_settings {
-                if let Ok(uid) = uid.parse::<u64>() {
-                    users.insert(
-                        uid,
-                        UserVoice {
-                            engine: EngineId::voicevox(),
-                            speaker: SpeakerId(speaker_id),
-                        },
-                    );
-                }
-            }
-        } else {
-            for (uid, setting) in dto.user_settings_v2 {
-                if let Ok(uid) = uid.parse::<u64>() {
-                    users.insert(
-                        uid,
-                        UserVoice {
-                            engine: EngineId::new(setting.engine),
-                            speaker: SpeakerId(setting.speaker_id),
-                        },
-                    );
-                }
-            }
+        let legacy_count = dto.user_settings.len() + dto.user_settings_v2.len();
+        if legacy_count > 0 {
+            tracing::warn!(
+                v1 = dto.user_settings.len(),
+                v2 = dto.user_settings_v2.len(),
+                "サーバー（ギルド）情報を持たない旧形式の音声設定を検出しました。移行先のギルドを確定できないため破棄します"
+            );
         }
 
-        (default_voice, users, migrated)
+        let mut users = HashMap::new();
+        for (key, setting) in dto.user_settings_v3 {
+            let Some((guild_id, user_id)) = parse_key(&key) else {
+                tracing::warn!(key = %key, "音声設定のキーが不正なためスキップします");
+                continue;
+            };
+            users.insert(
+                (guild_id, user_id),
+                UserVoice {
+                    engine: EngineId::new(setting.engine),
+                    speaker: SpeakerId(setting.speaker_id),
+                },
+            );
+        }
+
+        (default_voice, users, legacy_count > 0)
     }
 
     /// 現在の状態を設定ファイルへ書き出す（一時ファイル経由のアトミック書き込み）。
@@ -147,13 +159,14 @@ impl JsonVoiceStore {
             default_speaker_id: self.default_voice.speaker.0,
             default_engine: self.default_voice.engine.to_string(),
             user_settings: HashMap::new(),
-            user_settings_v2: {
+            user_settings_v2: HashMap::new(),
+            user_settings_v3: {
                 let users = self.users.read().await;
                 users
                     .iter()
-                    .map(|(uid, voice)| {
+                    .map(|((guild_id, user_id), voice)| {
                         (
-                            uid.to_string(),
+                            make_key(*guild_id, *user_id),
                             UserSettingDto {
                                 speaker_id: voice.speaker.0,
                                 engine: voice.engine.to_string(),
@@ -186,23 +199,110 @@ impl JsonVoiceStore {
 
 #[async_trait]
 impl VoiceSettingsStore for JsonVoiceStore {
-    async fn get(&self, user: UserId) -> UserVoice {
+    async fn get(&self, guild_id: u64, user: UserId) -> UserVoice {
         let users = self.users.read().await;
         users
-            .get(&user.0)
+            .get(&(guild_id, user.0))
             .cloned()
             .unwrap_or_else(|| self.default_voice.clone())
     }
 
-    async fn set(&self, user: UserId, voice: UserVoice) -> Result<(), StoreError> {
+    async fn set(&self, guild_id: u64, user: UserId, voice: UserVoice) -> Result<(), StoreError> {
         {
             let mut users = self.users.write().await;
-            users.insert(user.0, voice);
+            users.insert((guild_id, user.0), voice);
         }
         self.persist().await
     }
 
     fn default_voice(&self) -> UserVoice {
         self.default_voice.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn key_round_trip() {
+        assert_eq!(parse_key(&make_key(123, 456)), Some((123, 456)));
+        assert_eq!(parse_key("abc:def"), None);
+        assert_eq!(parse_key("123"), None);
+        assert_eq!(parse_key("1:2:3"), None);
+    }
+
+    #[test]
+    fn legacy_settings_are_discarded_and_marked_dirty() {
+        let dto = SettingsDto {
+            default_speaker_id: 8,
+            default_engine: "voicevox".to_owned(),
+            user_settings: [("1".to_owned(), 3)].into_iter().collect(),
+            user_settings_v2: [(
+                "2".to_owned(),
+                UserSettingDto {
+                    speaker_id: 4,
+                    engine: "voicevox".to_owned(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+            user_settings_v3: [(
+                make_key(10, 20),
+                UserSettingDto {
+                    speaker_id: 5,
+                    engine: "aivoice".to_owned(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let (default_voice, users, dirty) = JsonVoiceStore::dto_into_state(dto);
+
+        // 旧形式（v1/v2）は移行されず破棄される。
+        assert_eq!(users.len(), 1);
+        assert!(users.contains_key(&(10, 20)));
+        // 旧形式があったため、現行形式のみで書き直すよう要保存フラグが立つ。
+        assert!(dirty);
+        // デフォルト設定は維持される。
+        assert_eq!(default_voice.speaker, SpeakerId(8));
+        assert_eq!(default_voice.engine, EngineId::voicevox());
+    }
+
+    #[test]
+    fn v3_settings_are_loaded() {
+        let dto = SettingsDto {
+            default_speaker_id: 8,
+            default_engine: "voicevox".to_owned(),
+            user_settings: HashMap::new(),
+            user_settings_v2: HashMap::new(),
+            user_settings_v3: [
+                (
+                    make_key(1, 100),
+                    UserSettingDto {
+                        speaker_id: 20,
+                        engine: "aivoice".to_owned(),
+                    },
+                ),
+                (
+                    make_key(1, 200),
+                    UserSettingDto {
+                        speaker_id: 8,
+                        engine: "voicevox".to_owned(),
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let (_, users, dirty) = JsonVoiceStore::dto_into_state(dto);
+
+        assert_eq!(users.len(), 2);
+        assert_eq!(users.get(&(1, 100)).map(|v| v.speaker), Some(SpeakerId(20)));
+        // 同一ユーザーでもギルドが違えば別設定になる（同一キー衝突がないことの確認）。
+        assert!(!users.contains_key(&(2, 100)));
+        assert!(!dirty);
     }
 }

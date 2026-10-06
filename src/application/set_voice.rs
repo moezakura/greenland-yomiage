@@ -17,8 +17,13 @@ impl SetVoiceUseCase {
         Self { store }
     }
 
-    /// `user` の音声設定を `voice` に更新する。
-    pub async fn execute(&self, user: UserId, voice: UserVoice) -> Result<(), StoreError> {
-        self.store.set(user, voice).await
+    /// `guild_id` のサーバーにおける `user` の音声設定を `voice` に更新する。
+    pub async fn execute(
+        &self,
+        guild_id: u64,
+        user: UserId,
+        voice: UserVoice,
+    ) -> Result<(), StoreError> {
+        self.store.set(guild_id, user, voice).await
     }
 }

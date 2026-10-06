@@ -94,10 +94,15 @@ pub async fn handle_component(
     component: &ComponentInteraction,
     bot: &Bot,
 ) -> Result<()> {
+    // 音声設定はサーバー（ギルド）×ユーザー単位で保存するため、ギルド外では受理しない。
+    // コンポーネントはギルド内でしか発生しない想定だが、念のためガードする。
+    let Some(guild_id) = component.guild_id else {
+        return update_message(ctx, component, "ギルド内で実行してください。", Vec::new()).await;
+    };
     let custom_id = component.data.custom_id.as_str();
 
     if custom_id.starts_with("select_voice") {
-        handle_selection(ctx, component, bot).await
+        handle_selection(ctx, component, bot, guild_id.get()).await
     } else if let Some(page) = custom_id.strip_prefix("voice_page:") {
         let page = page.parse::<usize>().unwrap_or(0);
         handle_page_change(ctx, component, bot, page).await
@@ -112,6 +117,7 @@ async fn handle_selection(
     ctx: &Context,
     component: &ComponentInteraction,
     bot: &Bot,
+    guild_id: u64,
 ) -> Result<()> {
     let selected = match &component.data.kind {
         ComponentInteractionDataKind::StringSelect { values } => values.first().cloned(),
@@ -138,7 +144,7 @@ async fn handle_selection(
 
     if let Err(error) = bot
         .set_voice
-        .execute(UserId(component.user.id.get()), voice)
+        .execute(guild_id, UserId(component.user.id.get()), voice)
         .await
     {
         tracing::error!(%error, "音声設定の保存に失敗しました");
@@ -162,8 +168,13 @@ async fn handle_page_change(
 ) -> Result<()> {
     let speakers = bot.list_speakers.execute().await;
     if speakers.is_empty() {
-        return update_message(ctx, component, "スピーカー一覧の取得に失敗しました。", Vec::new())
-            .await;
+        return update_message(
+            ctx,
+            component,
+            "スピーカー一覧の取得に失敗しました。",
+            Vec::new(),
+        )
+        .await;
     }
     let (content, rows) = build_pager(&speakers, page);
     update_message(ctx, component, content, rows).await

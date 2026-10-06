@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use serenity::all::{
-    Context, EventHandler, GuildId, Interaction, Message, Ready, UserId, VoiceState,
+    Context, EventHandler, Guild, GuildId, Interaction, Message, Ready, UnavailableGuild, UserId,
+    VoiceState,
 };
 
 use crate::application::add_word::AddWordUseCase;
@@ -91,7 +92,10 @@ impl Bot {
             return Ok(());
         };
 
-        let voice = self.store.get(DomainUserId(msg.author.id.get())).await;
+        let voice = self
+            .store
+            .get(guild_id.get(), DomainUserId(msg.author.id.get()))
+            .await;
         let job = SpeechJob {
             user_id: msg.author.id.get(),
             text,
@@ -105,11 +109,7 @@ impl Bot {
 
     /// ボイスステート変更時の自動退出処理。
     #[tracing::instrument(skip_all)]
-    async fn on_voice_state_update(
-        &self,
-        ctx: &Context,
-        new: &VoiceState,
-    ) -> anyhow::Result<()> {
+    async fn on_voice_state_update(&self, ctx: &Context, new: &VoiceState) -> anyhow::Result<()> {
         let Some(guild_id) = new.guild_id else {
             return Ok(());
         };
@@ -172,12 +172,61 @@ fn author_in_bot_vc(ctx: &Context, guild_id: GuildId, author_id: UserId) -> bool
 #[serenity::async_trait]
 impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        tracing::info!(bot = %ready.user.name, "Discord に接続しました");
+        tracing::info!(
+            bot = %ready.user.name,
+            guilds = ready.guilds.len(),
+            "Discord に接続しました"
+        );
 
-        let guild_id = GuildId::new(self.config.guild_id);
-        if let Err(error) = commands::register(&ctx, guild_id).await {
-            tracing::error!(%error, "スラッシュコマンドの登録に失敗しました");
+        // 参加している全ギルドへスラッシュコマンドを登録する（ギルド単位登録は即時反映される）。
+        for guild in &ready.guilds {
+            if let Err(error) = commands::register(&ctx, guild.id).await {
+                tracing::error!(
+                    %error,
+                    guild_id = guild.id.get(),
+                    "スラッシュコマンドの登録に失敗しました"
+                );
+            }
         }
+    }
+
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: Option<bool>) {
+        // 起動時の参加ギルドは `ready` で登録済みのため、実行中の新規参加のみ扱う。
+        if is_new != Some(true) {
+            return;
+        }
+        tracing::info!(guild_id = guild.id.get(), "新しいギルドに参加しました");
+        if let Err(error) = commands::register(&ctx, guild.id).await {
+            tracing::error!(
+                %error,
+                guild_id = guild.id.get(),
+                "スラッシュコマンドの登録に失敗しました"
+            );
+        }
+    }
+
+    async fn guild_delete(&self, ctx: Context, incomplete: UnavailableGuild, _full: Option<Guild>) {
+        // `unavailable == true` は Discord 側の一時的なアウトエイジ（退出ではない）。
+        // 復帰時には GUILD_CREATE が再送されるため、後始末は行わない。
+        if incomplete.unavailable {
+            return;
+        }
+
+        let guild_id = incomplete.id;
+        if let Some(manager) = songbird::get(&ctx).await
+            && let Err(error) = manager.remove(guild_id).await
+        {
+            tracing::warn!(
+                %error,
+                guild_id = guild_id.get(),
+                "音声接続の破棄に失敗しました"
+            );
+        }
+        self.guilds.remove(&guild_id.get());
+        tracing::info!(
+            guild_id = guild_id.get(),
+            "ギルドから退出したため実行時状態を破棄しました"
+        );
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
