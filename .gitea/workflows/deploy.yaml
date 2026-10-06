@@ -56,8 +56,8 @@ jobs:
           host: 10.77.0.17
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          # restart 時のコンテナ停止（SIGTERM→SIGKILL）+ 起動待ちで 60s を超えうるため延長
-          command_timeout: 5m
+          # Run #41/#42: 同期 restart 中に SSH が切断される。no-block + 長めの timeout。
+          command_timeout: 10m
           envs: REGISTRY_TOKEN
           script: |
             set -eu
@@ -71,19 +71,19 @@ jobs:
 
             # コンテナは Quadlet(systemd user unit greenland-yomiage.service) が管理する。
             # Pull=never のためストアのイメージを更新した上で restart すると新イメージで再作成される。
-            # podman stop/rm/run を直接実行すると systemd と競合するため絶対に行わない。
-            # 停止が遅いと exit 137 で failed のまま残ることがあるため、その場合は start で復帰する。
-            systemctl --user restart greenland-yomiage.service || true
-            if [ "$(systemctl --user is-active greenland-yomiage.service)" != "active" ]; then
-              systemctl --user reset-failed greenland-yomiage.service || true
-              systemctl --user start greenland-yomiage.service
-            fi
+            # 同期 restart は停止待ちで SSH 切断されることがあるため --no-block で投げ、ポーリングで待つ。
+            systemctl --user reset-failed greenland-yomiage.service 2>/dev/null || true
+            systemctl --user restart --no-block greenland-yomiage.service || systemctl --user start --no-block greenland-yomiage.service
 
-            # ヘルスチェック（最大約60秒ポーリング）
-            for i in $(seq 1 30); do
+            # ヘルスチェック（最大約120秒ポーリング）
+            for i in $(seq 1 60); do
               if [ "$(systemctl --user is-active greenland-yomiage.service)" = "active" ] && podman ps --filter name=^greenland-yomiage$ --format '{{.Status}}' | grep -q 'Up'; then
                 echo "Deploy successful: container is running"
                 exit 0
+              fi
+              if [ "$(systemctl --user is-active greenland-yomiage.service)" = "failed" ]; then
+                systemctl --user reset-failed greenland-yomiage.service || true
+                systemctl --user start --no-block greenland-yomiage.service || true
               fi
               sleep 2
             done
