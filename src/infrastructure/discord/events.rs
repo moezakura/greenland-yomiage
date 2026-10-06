@@ -91,7 +91,10 @@ impl Bot {
             return Ok(());
         };
 
-        let voice = self.store.get(DomainUserId(msg.author.id.get())).await;
+        let voice = self
+            .store
+            .get(guild_id.get(), DomainUserId(msg.author.id.get()))
+            .await;
         let job = SpeechJob {
             user_id: msg.author.id.get(),
             text,

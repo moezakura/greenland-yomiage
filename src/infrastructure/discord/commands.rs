@@ -247,6 +247,10 @@ async fn set_voice_direct(
     bot: &Bot,
     arg: &str,
 ) -> Result<()> {
+    let Some(guild_id) = cmd.guild_id else {
+        return respond(ctx, cmd, "ギルド内で実行してください。", true).await;
+    };
+
     let (engine, speaker_id) = match parse_speaker_arg(arg) {
         Ok(parsed) => parsed,
         Err(message) => return respond(ctx, cmd, message, true).await,
@@ -270,7 +274,7 @@ async fn set_voice_direct(
     };
     if let Err(error) = bot
         .set_voice
-        .execute(UserId(cmd.user.id.get()), voice)
+        .execute(guild_id.get(), UserId(cmd.user.id.get()), voice)
         .await
     {
         tracing::error!(%error, "音声設定の保存に失敗しました");
