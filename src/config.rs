@@ -7,10 +7,6 @@ use crate::error::ConfigError;
 pub struct Config {
     /// Discord Bot トークン。
     pub discord_token: String,
-    /// スラッシュコマンドを登録する対象ギルド ID。
-    pub guild_id: u64,
-    /// 読み上げ対象テキストチャンネルの初期値（`/join` 実行時に上書きされる）。
-    pub yomiage_channel_id: u64,
     /// VOICEVOX Engine のベース URL。
     pub voicevox_base_url: String,
     /// AIVoice2 Engine のベース URL。
@@ -56,8 +52,6 @@ impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
         Ok(Self {
             discord_token: required("DISCORD_TOKEN")?,
-            guild_id: required_parse("DISCORD_GUILD_ID")?,
-            yomiage_channel_id: required_parse("DISCORD_YOMIAGE_CH_ID")?,
             voicevox_base_url: trim_url(optional("VOICEVOX_BASE_URL", "http://localhost:50021")),
             aivoice_base_url: trim_url(optional(
                 "AIVOICE2_ENGINE_BASE_URL",
@@ -87,14 +81,6 @@ fn optional(name: &str, default: &str) -> String {
         .ok()
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| default.to_owned())
-}
-
-/// 必須の環境変数を取得し、目的の型へパースする。
-fn required_parse<T: std::str::FromStr>(name: &'static str) -> Result<T, ConfigError> {
-    let value = required(name)?;
-    value
-        .parse()
-        .map_err(|_| ConfigError::Invalid { name, value })
 }
 
 /// ベース URL の末尾スラッシュを取り除く。

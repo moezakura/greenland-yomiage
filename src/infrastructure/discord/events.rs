@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use serenity::all::{
-    Context, EventHandler, GuildId, Interaction, Message, Ready, UserId, VoiceState,
+    Context, EventHandler, Guild, GuildId, Interaction, Message, Ready, UserId, VoiceState,
 };
 
 use crate::application::add_word::AddWordUseCase;
@@ -168,11 +168,36 @@ fn author_in_bot_vc(ctx: &Context, guild_id: GuildId, author_id: UserId) -> bool
 #[serenity::async_trait]
 impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        tracing::info!(bot = %ready.user.name, "Discord に接続しました");
+        tracing::info!(
+            bot = %ready.user.name,
+            guilds = ready.guilds.len(),
+            "Discord に接続しました"
+        );
 
-        let guild_id = GuildId::new(self.config.guild_id);
-        if let Err(error) = commands::register(&ctx, guild_id).await {
-            tracing::error!(%error, "スラッシュコマンドの登録に失敗しました");
+        // 参加している全ギルドへスラッシュコマンドを登録する（ギルド単位登録は即時反映される）。
+        for guild in &ready.guilds {
+            if let Err(error) = commands::register(&ctx, guild.id).await {
+                tracing::error!(
+                    %error,
+                    guild_id = guild.id.get(),
+                    "スラッシュコマンドの登録に失敗しました"
+                );
+            }
+        }
+    }
+
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: Option<bool>) {
+        // 起動時の参加ギルドは `ready` で登録済みのため、実行中の新規参加のみ扱う。
+        if is_new != Some(true) {
+            return;
+        }
+        tracing::info!(guild_id = guild.id.get(), "新しいギルドに参加しました");
+        if let Err(error) = commands::register(&ctx, guild.id).await {
+            tracing::error!(
+                %error,
+                guild_id = guild.id.get(),
+                "スラッシュコマンドの登録に失敗しました"
+            );
         }
     }
 
