@@ -51,48 +51,47 @@ jobs:
             .
 
       - name: Deploy to YUNAGI
-        uses: appleboy/ssh-action@v1
-        with:
-          host: 10.77.0.17
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          # Run #41/#42: 同期 restart 中に SSH が切断される。no-block + 長めの timeout。
-          command_timeout: 10m
-          envs: REGISTRY_TOKEN
-          script: |
-            set -eu
-            IMAGE="10.77.0.20/greenland/yomiage:latest"
-
-            # Giteaレジストリ認証（mox rootless podman。LAN内平文HTTPのため --tls-verify=false が必須）
-            echo "$REGISTRY_TOKEN" | podman login --tls-verify=false 10.77.0.20 -u ${{ github.actor }} --password-stdin
-
-            # 最新イメージ取得（set -eu により失敗時は即中断。旧バージョンのまま稼働継続）
-            podman pull --tls-verify=false $IMAGE
-
-            # コンテナは Quadlet(systemd user unit greenland-yomiage.service) が管理する。
-            # Pull=never のためストアのイメージを更新した上で restart すると新イメージで再作成される。
-            # 同期 restart は停止待ちで SSH 切断されることがあるため --no-block で投げ、ポーリングで待つ。
-            systemctl --user reset-failed greenland-yomiage.service 2>/dev/null || true
-            systemctl --user restart --no-block greenland-yomiage.service || systemctl --user start --no-block greenland-yomiage.service
-
-            # ヘルスチェック（最大約120秒ポーリング）
-            for i in $(seq 1 60); do
-              if [ "$(systemctl --user is-active greenland-yomiage.service)" = "active" ] && podman ps --filter name=^greenland-yomiage$ --format '{{.Status}}' | grep -q 'Up'; then
-                echo "Deploy successful: container is running"
-                exit 0
-              fi
-              if [ "$(systemctl --user is-active greenland-yomiage.service)" = "failed" ]; then
-                systemctl --user reset-failed greenland-yomiage.service || true
-                systemctl --user start --no-block greenland-yomiage.service || true
-              fi
-              sleep 2
-            done
-            echo "Deploy FAILED: service is not healthy"
-            podman logs --tail 50 greenland-yomiage 2>/dev/null || true
-            systemctl --user status greenland-yomiage.service --no-pager || true
-            exit 1
         env:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          mkdir -p "$HOME/.ssh"
+          echo "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          # appleboy/drone-ssh は Gitea 上で command_timeout が効かず約60sで切断するため、素の ssh を使う
+          ssh -i "$HOME/.ssh/deploy_key" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=12 \
+            -o ConnectTimeout=20 \
+            "${DEPLOY_USER}@10.77.0.17" \
+            "REGISTRY_TOKEN=$(printf %q "$REGISTRY_TOKEN") ACTOR=$(printf %q "$ACTOR") bash -s" <<'REMOTE'
+          set -eu
+          IMAGE="10.77.0.20/greenland/yomiage:latest"
+          echo "$REGISTRY_TOKEN" | podman login --tls-verify=false 10.77.0.20 -u "$ACTOR" --password-stdin
+          podman pull --tls-verify=false "$IMAGE"
+          systemctl --user reset-failed greenland-yomiage.service 2>/dev/null || true
+          systemctl --user restart --no-block greenland-yomiage.service || systemctl --user start --no-block greenland-yomiage.service
+          for i in $(seq 1 60); do
+            if [ "$(systemctl --user is-active greenland-yomiage.service)" = "active" ] && podman ps --filter name=^greenland-yomiage$ --format '{{.Status}}' | grep -q 'Up'; then
+              echo "Deploy successful: container is running"
+              exit 0
+            fi
+            if [ "$(systemctl --user is-active greenland-yomiage.service)" = "failed" ]; then
+              systemctl --user reset-failed greenland-yomiage.service || true
+              systemctl --user start --no-block greenland-yomiage.service || true
+            fi
+            sleep 2
+          done
+          echo "Deploy FAILED: service is not healthy"
+          podman logs --tail 50 greenland-yomiage 2>/dev/null || true
+          systemctl --user status greenland-yomiage.service --no-pager || true
+          exit 1
+          REMOTE
 
       - name: Cleanup old registry versions (keep latest 20)
         if: always()
