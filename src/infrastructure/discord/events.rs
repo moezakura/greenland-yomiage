@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use serenity::all::{
-    Context, EventHandler, Guild, GuildId, Interaction, Message, Ready, UserId, VoiceState,
+    Context, EventHandler, Guild, GuildId, Interaction, Message, Ready, UnavailableGuild, UserId,
+    VoiceState,
 };
 
 use crate::application::add_word::AddWordUseCase;
@@ -202,6 +203,30 @@ impl EventHandler for Bot {
                 "スラッシュコマンドの登録に失敗しました"
             );
         }
+    }
+
+    async fn guild_delete(&self, ctx: Context, incomplete: UnavailableGuild, _full: Option<Guild>) {
+        // `unavailable == true` は Discord 側の一時的なアウトエイジ（退出ではない）。
+        // 復帰時には GUILD_CREATE が再送されるため、後始末は行わない。
+        if incomplete.unavailable {
+            return;
+        }
+
+        let guild_id = incomplete.id;
+        if let Some(manager) = songbird::get(&ctx).await
+            && let Err(error) = manager.remove(guild_id).await
+        {
+            tracing::warn!(
+                %error,
+                guild_id = guild_id.get(),
+                "音声接続の破棄に失敗しました"
+            );
+        }
+        self.guilds.remove(&guild_id.get());
+        tracing::info!(
+            guild_id = guild_id.get(),
+            "ギルドから退出したため実行時状態を破棄しました"
+        );
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
