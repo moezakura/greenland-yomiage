@@ -56,6 +56,8 @@ jobs:
           host: 10.77.0.17
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # restart 時のコンテナ停止（SIGTERM→SIGKILL）+ 起動待ちで 60s を超えうるため延長
+          command_timeout: 5m
           envs: REGISTRY_TOKEN
           script: |
             set -eu
@@ -70,18 +72,25 @@ jobs:
             # コンテナは Quadlet(systemd user unit greenland-yomiage.service) が管理する。
             # Pull=never のためストアのイメージを更新した上で restart すると新イメージで再作成される。
             # podman stop/rm/run を直接実行すると systemd と競合するため絶対に行わない。
-            systemctl --user restart greenland-yomiage.service
-
-            # ヘルスチェック（10秒後にサービスが active かつコンテナが Up であること）
-            sleep 10
-            if [ "$(systemctl --user is-active greenland-yomiage.service)" = "active" ] && podman ps --filter name=^greenland-yomiage$ --format '{{.Status}}' | grep -q 'Up'; then
-              echo "Deploy successful: container is running"
-            else
-              echo "Deploy FAILED: service is not healthy"
-              podman logs --tail 50 greenland-yomiage 2>/dev/null || true
-              systemctl --user status greenland-yomiage.service --no-pager || true
-              exit 1
+            # 停止が遅いと exit 137 で failed のまま残ることがあるため、その場合は start で復帰する。
+            systemctl --user restart greenland-yomiage.service || true
+            if [ "$(systemctl --user is-active greenland-yomiage.service)" != "active" ]; then
+              systemctl --user reset-failed greenland-yomiage.service || true
+              systemctl --user start greenland-yomiage.service
             fi
+
+            # ヘルスチェック（最大約60秒ポーリング）
+            for i in $(seq 1 30); do
+              if [ "$(systemctl --user is-active greenland-yomiage.service)" = "active" ] && podman ps --filter name=^greenland-yomiage$ --format '{{.Status}}' | grep -q 'Up'; then
+                echo "Deploy successful: container is running"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "Deploy FAILED: service is not healthy"
+            podman logs --tail 50 greenland-yomiage 2>/dev/null || true
+            systemctl --user status greenland-yomiage.service --no-pager || true
+            exit 1
         env:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
 
