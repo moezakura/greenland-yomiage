@@ -9,7 +9,9 @@ use serenity::all::{
 
 use crate::domain::model::{DictionaryEntry, EngineId, SpeakerId, UserId, UserVoice};
 use crate::infrastructure::discord::events::Bot;
-use crate::infrastructure::discord::message_flow::{spawn_speech_worker, GuildState, SpeechWorkerDeps};
+use crate::infrastructure::discord::message_flow::{
+    GuildState, SpeechWorkerDeps, spawn_speech_worker,
+};
 use crate::infrastructure::discord::voice_activity::VoiceActivityHandler;
 use crate::infrastructure::discord::{engine_display_name, playback, voice_pager};
 
@@ -186,7 +188,13 @@ async fn leave(ctx: &Context, cmd: &CommandInteraction, bot: &Bot) -> Result<()>
 
     if let Err(error) = manager.remove(guild_id).await {
         tracing::error!(%error, "ボイスチャンネルからの退出に失敗しました");
-        return respond(ctx, cmd, "ボイスチャンネルからの退出に失敗しました。", false).await;
+        return respond(
+            ctx,
+            cmd,
+            "ボイスチャンネルからの退出に失敗しました。",
+            false,
+        )
+        .await;
     }
 
     bot.guilds.remove(&guild_id.get());
@@ -290,8 +298,7 @@ async fn add_word(ctx: &Context, cmd: &CommandInteraction, bot: &Bot) -> Result<
     let pronunciation = string_option(&options, "pronunciation");
     let accent_type = integer_option(&options, "accent_type");
 
-    let (Some(word), Some(pronunciation), Some(accent_type)) =
-        (word, pronunciation, accent_type)
+    let (Some(word), Some(pronunciation), Some(accent_type)) = (word, pronunciation, accent_type)
     else {
         return respond(ctx, cmd, "必要な引数が不足しています。", false).await;
     };
@@ -343,20 +350,22 @@ fn parse_speaker_arg(arg: &str) -> Result<(EngineId, u32), String> {
 
 /// 解決済みオプション列から文字列オプションを取り出す。
 fn string_option<'a>(options: &'a [ResolvedOption<'a>], name: &str) -> Option<&'a str> {
-    options.iter().find(|opt| opt.name == name).and_then(|opt| {
-        match &opt.value {
+    options
+        .iter()
+        .find(|opt| opt.name == name)
+        .and_then(|opt| match &opt.value {
             ResolvedValue::String(value) => Some(*value),
             _ => None,
-        }
-    })
+        })
 }
 
 /// 解決済みオプション列から整数オプションを取り出す。
 fn integer_option(options: &[ResolvedOption<'_>], name: &str) -> Option<i64> {
-    options.iter().find(|opt| opt.name == name).and_then(|opt| {
-        match &opt.value {
+    options
+        .iter()
+        .find(|opt| opt.name == name)
+        .and_then(|opt| match &opt.value {
             ResolvedValue::Integer(value) => Some(*value),
             _ => None,
-        }
-    })
+        })
 }

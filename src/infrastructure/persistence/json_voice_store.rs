@@ -77,8 +77,8 @@ impl JsonVoiceStore {
 
         let (default_voice, users, dirty) = match tokio::fs::read(&path).await {
             Ok(bytes) => {
-                let dto: SettingsDto = serde_json::from_slice(&bytes)
-                    .map_err(|e| StoreError::Serde(e.to_string()))?;
+                let dto: SettingsDto =
+                    serde_json::from_slice(&bytes).map_err(|e| StoreError::Serde(e.to_string()))?;
                 Self::dto_into_state(dto)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {

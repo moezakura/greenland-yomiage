@@ -105,11 +105,7 @@ impl Bot {
 
     /// ボイスステート変更時の自動退出処理。
     #[tracing::instrument(skip_all)]
-    async fn on_voice_state_update(
-        &self,
-        ctx: &Context,
-        new: &VoiceState,
-    ) -> anyhow::Result<()> {
+    async fn on_voice_state_update(&self, ctx: &Context, new: &VoiceState) -> anyhow::Result<()> {
         let Some(guild_id) = new.guild_id else {
             return Ok(());
         };

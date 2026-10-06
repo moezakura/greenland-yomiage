@@ -58,10 +58,7 @@ impl Config {
             discord_token: required("DISCORD_TOKEN")?,
             guild_id: required_parse("DISCORD_GUILD_ID")?,
             yomiage_channel_id: required_parse("DISCORD_YOMIAGE_CH_ID")?,
-            voicevox_base_url: trim_url(optional(
-                "VOICEVOX_BASE_URL",
-                "http://localhost:50021",
-            )),
+            voicevox_base_url: trim_url(optional("VOICEVOX_BASE_URL", "http://localhost:50021")),
             aivoice_base_url: trim_url(optional(
                 "AIVOICE2_ENGINE_BASE_URL",
                 "http://localhost:8000",
@@ -95,7 +92,9 @@ fn optional(name: &str, default: &str) -> String {
 /// 必須の環境変数を取得し、目的の型へパースする。
 fn required_parse<T: std::str::FromStr>(name: &'static str) -> Result<T, ConfigError> {
     let value = required(name)?;
-    value.parse().map_err(|_| ConfigError::Invalid { name, value })
+    value
+        .parse()
+        .map_err(|_| ConfigError::Invalid { name, value })
 }
 
 /// ベース URL の末尾スラッシュを取り除く。

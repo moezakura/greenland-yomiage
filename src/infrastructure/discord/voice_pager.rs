@@ -162,8 +162,13 @@ async fn handle_page_change(
 ) -> Result<()> {
     let speakers = bot.list_speakers.execute().await;
     if speakers.is_empty() {
-        return update_message(ctx, component, "スピーカー一覧の取得に失敗しました。", Vec::new())
-            .await;
+        return update_message(
+            ctx,
+            component,
+            "スピーカー一覧の取得に失敗しました。",
+            Vec::new(),
+        )
+        .await;
     }
     let (content, rows) = build_pager(&speakers, page);
     update_message(ctx, component, content, rows).await

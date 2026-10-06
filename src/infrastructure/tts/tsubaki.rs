@@ -89,8 +89,8 @@ impl TtsEngine for TsubakiEngine {
             .await
             .map_err(http_err)?;
         let create_body = bytes_or_error(create_response).await?;
-        let TtsResponse { job_id } = serde_json::from_slice(&create_body)
-            .map_err(|e| TtsError::Decode(e.to_string()))?;
+        let TtsResponse { job_id } =
+            serde_json::from_slice(&create_body).map_err(|e| TtsError::Decode(e.to_string()))?;
 
         // 2. 完了までポーリング。
         let deadline = tokio::time::Instant::now() + POLL_TIMEOUT;
@@ -102,14 +102,14 @@ impl TtsEngine for TsubakiEngine {
                 .await
                 .map_err(http_err)?;
             let job_body = bytes_or_error(job_response).await?;
-            let job: JobStatusResponse = serde_json::from_slice(&job_body)
-                .map_err(|e| TtsError::Decode(e.to_string()))?;
+            let job: JobStatusResponse =
+                serde_json::from_slice(&job_body).map_err(|e| TtsError::Decode(e.to_string()))?;
 
             match job.status.as_str() {
                 "completed" | "success" | "succeeded" | "done" => {
-                    let url = job.audio_url.ok_or_else(|| TtsError::Decode(
-                        "ジョブが完了したが audio_url が返らなかった".to_owned(),
-                    ))?;
+                    let url = job.audio_url.ok_or_else(|| {
+                        TtsError::Decode("ジョブが完了したが audio_url が返らなかった".to_owned())
+                    })?;
                     return self.fetch_audio(&url).await;
                 }
                 "failed" | "error" | "cancelled" | "canceled" => {

@@ -22,7 +22,10 @@ impl MessageFilterChain {
     pub fn evaluate(&self, message: &IncomingMessage) -> bool {
         for filter in &self.filters {
             if !filter.allow(message) {
-                tracing::debug!(filter = filter.name(), "フィルタによりメッセージをスキップしました");
+                tracing::debug!(
+                    filter = filter.name(),
+                    "フィルタによりメッセージをスキップしました"
+                );
                 return false;
             }
         }
